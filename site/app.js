@@ -69,7 +69,7 @@
     clearTimers();
     var n = el('<div>' +
       '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
-      '<a class="nl" href="#features">Features</a><a class="nl" href="#plans">Pricing</a>' +
+      '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
       '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button></div></nav>' +
       '<header class="hero"><div><div class="pill"><b></b>Online and ready</div>' +
       '<h1>Your AI for <span class="type" id="ty"></span><br><span class="grad">built to ship.</span></h1>' +
@@ -85,6 +85,16 @@
       feat('🎁', 'Refer and earn', 'Invite friends and unlock bonus tokens for every five who join.') +
       feat('📱', 'Made for mobile', 'Smooth, thumb-friendly layout that feels like a native app.') +
       '</div></section><section class="sec" id="plans"><h2 class="rv">Simple <span class="grad">pricing</span></h2><p class="sub rv">Start free. Upgrade when you need more.</p><div class="grid" id="pl"></div></section>' +
+      '<section class="sec" id="how"><h2 class="rv">From idea to answer in <span class="grad">three steps</span></h2><p class="sub rv">No setup. No learning curve.</p><div class="steps">' +
+      '<div class="step rv"><b>01</b><h3>Ask</h3><p>Type or paste anything: a question, a bug, a feature you want built.</p></div>' +
+      '<div class="step rv"><b>02</b><h3>Watch it think</h3><p>Replies stream in live, with clean code blocks you can copy in one tap.</p></div>' +
+      '<div class="step rv"><b>03</b><h3>Keep going</h3><p>Every chat is saved and searchable, so you can pick up right where you left off.</p></div></div></section>' +
+      '<section class="sec" id="faq"><h2 class="rv">Frequently asked <span class="grad">questions</span></h2><div class="faq rv">' +
+      '<details><summary>What counts as a token?</summary><p>Tokens cover both what you send and what the AI writes back. Your balance resets every 30 days.</p></details>' +
+      '<details><summary>Is it really free to start?</summary><p>Yes. Every account gets free tokens, and you can upgrade any time for a bigger allowance.</p></details>' +
+      '<details><summary>Do I need to verify my email?</summary><p>Yes. We send a 6-digit code to your inbox when you sign up, which keeps accounts secure.</p></details>' +
+      '<details><summary>Are my chats private?</summary><p>Your conversations are tied to your account and protected by secure sessions.</p></details></div></section>' +
+      '<section class="sec" id="contact"><div class="contact rv"><small>CONTACT</small><a class="mail" id="cmail" href="#">Talk to us</a><p style="margin:0;color:var(--mute)">Partnerships, custom plans or support. Write to the CEASER AI team.</p></div></section>' +
       '<footer class="foot">© ' + new Date().getFullYear() + ' CEASER AI · Built by Ceaser</footer></div>');
     $app.replaceChildren(n);
     n.querySelector('#li').onclick = function () { authModal('login'); };
@@ -95,6 +105,7 @@
     n.querySelector('#replay').onclick = function () { demoLoop(n.querySelector('#demo')); };
     reveal(n); typeLoop(n.querySelector('#ty')); demoLoop(n.querySelector('#demo'));
     renderPlans(n.querySelector('#pl'));
+    fetch('/api/public/config').then(function (r) { return r.json(); }).then(function (c) { var a = n.querySelector('#cmail'); if (a && c.app && c.app.email) { a.textContent = c.app.email; a.href = 'mailto:' + c.app.email; } }).catch(function () {});
   }
   function feat(i, t, p) { return '<div class="card rv"><div class="ic">' + i + '</div><h3>' + t + '</h3><p>' + p + '</p></div>'; }
   async function renderPlans(box) {
@@ -368,7 +379,7 @@
   function finishStartup() {
     var screen = document.getElementById('boot-screen'), progress = document.getElementById('boot-progress'), value = 0;
     var tm = setInterval(function () { value = Math.min(100, value + 5); if (progress) progress.textContent = value + '%'; if (value >= 100) clearInterval(tm); }, 50);
-    var wait = Math.max(0, 2400 - (performance.now() - startupAt));
+    var wait = Math.max(0, 2800 - (performance.now() - startupAt));
     setTimeout(function () { if (!screen) return; screen.classList.add('done'); setTimeout(function () { screen.remove(); }, 280); }, wait);
   }
   (async function boot() {

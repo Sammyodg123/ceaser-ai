@@ -52,14 +52,63 @@ router.post('/messages/:id/feedback', (req, res) => {
   db.prepare('UPDATE messages SET feedback=? WHERE id=?').run(req.body.value ?? req.body.feedback ?? null, m.id); res.json({ ok: true });
 });
 
+
+// ---- Manus agent provider (async tasks, polled and streamed to the browser) ----
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function pickProvider() {
+  const want = (process.env.AI_PROVIDER || '').toLowerCase();
+  if (want === 'manus') return process.env.MANUS_API_KEY ? 'manus' : null;
+  if (want === 'anthropic') return process.env.ANTHROPIC_API_KEY ? 'anthropic' : null;
+  return process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.MANUS_API_KEY ? 'manus' : null;
+}
+async function manusReply(conv, history, ac, send) {
+  const base = (process.env.MANUS_API_URL || 'https://api.manus.ai').replace(/\/$/, '');
+  const H = { 'content-type': 'application/json', 'x-manus-api-key': process.env.MANUS_API_KEY };
+  const call = async (path, body) => {
+    const r = await fetch(base + path, { method: body ? 'POST' : 'GET', headers: H, signal: ac.signal, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) throw new Error('manus ' + r.status + ' ' + JSON.stringify(j.error || j).slice(0, 300));
+    return j;
+  };
+  let taskId = db.prepare('SELECT manus_task FROM conversations WHERE id=?').get(conv.id).manus_task;
+  const list = () => call('/v2/task.listMessages?task_id=' + taskId + '&order=asc&limit=100');
+  const seen = new Set(), last = history[history.length - 1].content;
+  if (taskId) {
+    ((await list()).messages || []).forEach((m) => seen.add(m.id));
+    await call('/v2/task.sendMessage', { task_id: taskId, message: { content: last } });
+  } else {
+    const content = history.length > 1 ? history.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n') : last;
+    const j = await call('/v2/task.create', { message: { content }, interactive_mode: false, hide_in_task_list: true, agent_profile: process.env.MANUS_PROFILE || 'standard' });
+    taskId = j.task_id;
+    db.prepare('UPDATE conversations SET manus_task=? WHERE id=?').run(taskId, conv.id);
+  }
+  let text = '', sawNew = false;
+  for (const t0 = Date.now(); Date.now() - t0 < 300000;) {
+    await sleep(2000); if (ac.signal.aborted) break;
+    let status = null;
+    for (const m of (await list()).messages || []) {
+      const fresh = !seen.has(m.id); if (fresh) { seen.add(m.id); sawNew = true; }
+      if (m.type === 'status_update') status = m.status_update?.agent_status;
+      else if (fresh && m.type === 'assistant_message' && m.assistant_message?.content) {
+        const t = (text ? '\n\n' : '') + m.assistant_message.content; text += t; send('delta', { text: t });
+      } else if (fresh && m.type === 'error_message') throw new Error('manus task error: ' + (m.error_message?.content || ''));
+    }
+    if (sawNew && status === 'error') throw new Error('manus task failed');
+    if (sawNew && (status === 'stopped' || status === 'waiting')) break;
+  }
+  if (!text && !ac.signal.aborted) { text = 'The agent finished without a text reply.'; send('delta', { text }); }
+  return { text, tin: Math.ceil(last.length / 4), tout: Math.ceil(text.length / 4) };
+}
+
 // ---- streaming reply (Server-Sent Events: start / delta / done / error) ----
 async function streamReply(req, res, conv) {
   const bal = balanceOf(req.user);
   if (bal.remaining <= 0) throw new HttpError(402, 'insufficient_tokens', 'You are out of tokens. Upgrade your plan.');
-  if (!process.env.ANTHROPIC_API_KEY) throw new HttpError(503, 'ai_not_configured', 'AI provider key is not set on the server.');
+  const prov = pickProvider();
+  if (!prov) throw new HttpError(503, 'ai_not_configured', 'AI provider key is not set on the server.');
   const history = db.prepare('SELECT role,content FROM messages WHERE conversation_id=? AND status IN (\'complete\',\'stopped\') AND content<>\'\' ORDER BY seq').all(conv.id)
     .map((m) => ({ role: m.role, content: m.content })).slice(-40);
-  const model = process.env.AI_MODEL || 'claude-sonnet-4-5';
+  const model = prov === 'manus' ? 'manus-' + (process.env.MANUS_PROFILE || 'standard') : (process.env.AI_MODEL || 'claude-sonnet-4-5');
   const a = addMsg(conv.id, 'assistant', '', 'streaming');
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
   const send = (ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -67,6 +116,7 @@ async function streamReply(req, res, conv) {
   const ac = new AbortController(); res.on('close', () => ac.abort());
   let text = '', tin = 0, tout = 0, status = 'complete';
   try {
+    if (prov === 'manus') { const o = await manusReply(conv, history, ac, send); text = o.text; tin = o.tin; tout = o.tout; } else {
     const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal: ac.signal,
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model, max_tokens: 4096, stream: true, system: SYSTEM, messages: history }) });
@@ -82,6 +132,7 @@ async function streamReply(req, res, conv) {
         else if (d.type === 'content_block_delta' && d.delta?.text) { text += d.delta.text; send('delta', { text: d.delta.text }); }
         else if (d.type === 'message_delta') tout = d.usage?.output_tokens || tout;
       }
+    }
     }
   } catch (e) {
     if (ac.signal.aborted) status = 'stopped';

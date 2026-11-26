@@ -1,0 +1,51 @@
+/* CEASER AI — loader + landing polish (loads after app.css) */
+#boot-screen{background:#05070c;overflow:hidden}
+.bt-aurora{position:absolute;inset:-20%;background:radial-gradient(40% 35% at 25% 30%,rgba(45,255,160,.22),transparent 70%),radial-gradient(38% 34% at 78% 68%,rgba(25,195,255,.2),transparent 70%),radial-gradient(30% 30% at 60% 15%,rgba(139,123,255,.18),transparent 70%);filter:blur(24px);animation:btaur 7s ease-in-out infinite alternate}
+@keyframes btaur{to{transform:translate3d(3%,-3%,0) scale(1.12) rotate(6deg)}}
+.bt-grid{position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px) 0 0/44px 44px,linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px) 0 0/44px 44px;-webkit-mask:radial-gradient(circle at 50% 45%,#000,transparent 65%);mask:radial-gradient(circle at 50% 45%,#000,transparent 65%)}
+#boot-screen>*{position:relative;z-index:1}#boot-screen>.bt-aurora,#boot-screen>.bt-grid{position:absolute;z-index:0}
+.bt-core{position:relative;width:132px;height:132px;display:grid;place-items:center;margin-bottom:22px}
+.bt-ring{position:absolute;border-radius:50%;border:2px solid transparent;border-top-color:var(--a);border-right-color:var(--a2)}
+.bt-ring.r1{inset:0;animation:btspin 1.6s linear infinite;box-shadow:0 0 22px -6px var(--a)}
+.bt-ring.r2{inset:12px;animation:btspin 2.4s linear infinite reverse;border-top-color:var(--a3);border-right-color:var(--a)}
+.bt-ring.r3{inset:24px;animation:btspin 3.4s linear infinite;border-top-color:var(--a2);border-right-color:var(--a3);opacity:.7}
+@keyframes btspin{to{transform:rotate(360deg)}}
+.bt-logo{width:64px;height:64px;border-radius:20px;padding:2px;background:linear-gradient(135deg,var(--a),var(--a2));animation:btpulse 2s ease-in-out infinite;box-shadow:0 0 40px -8px var(--a)}
+.bt-logo span{width:100%;height:100%;border-radius:18px;background:#0b1117;display:grid;place-items:center;color:var(--a);font-size:28px;font-weight:900}
+@keyframes btpulse{50%{transform:scale(1.08);box-shadow:0 0 56px -4px var(--a2)}}
+.bt-word{display:flex;justify-content:center;gap:2px;font-size:clamp(26px,8vw,38px);font-weight:900;letter-spacing:.08em}
+.bt-word i{font-style:normal;opacity:0;transform:translateY(14px);animation:btletter .5s cubic-bezier(.2,.9,.3,1.2) forwards}
+.bt-word i.sp{width:.4em}.bt-word i.ai{background:linear-gradient(135deg,var(--a),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.bt-word i:nth-child(1){animation-delay:.1s}.bt-word i:nth-child(2){animation-delay:.18s}.bt-word i:nth-child(3){animation-delay:.26s}.bt-word i:nth-child(4){animation-delay:.34s}.bt-word i:nth-child(5){animation-delay:.42s}.bt-word i:nth-child(6){animation-delay:.5s}.bt-word i:nth-child(8){animation-delay:.62s}.bt-word i:nth-child(9){animation-delay:.7s}
+@keyframes btletter{to{opacity:1;transform:none}}
+.bt-tag{margin:8px 0 18px;font-size:10px;letter-spacing:.32em;color:var(--mute);opacity:0;animation:btletter .6s .9s forwards}
+.bt-steps{position:relative;height:20px;width:min(300px,84vw);margin-bottom:12px;font-size:13px;color:var(--a)}
+.bt-steps span{position:absolute;inset:0;opacity:0;animation:btstep 2.4s linear forwards}
+.bt-steps span:nth-child(2){animation-delay:.6s}.bt-steps span:nth-child(3){animation-delay:1.2s}.bt-steps span:nth-child(4){animation-delay:1.8s}
+@keyframes btstep{0%{opacity:0;transform:translateY(6px)}12%,48%{opacity:1;transform:none}62%,100%{opacity:0;transform:translateY(-6px)}}
+.bt-steps span:nth-child(4){animation-name:btstep4}@keyframes btstep4{0%{opacity:0;transform:translateY(6px)}20%,100%{opacity:1;transform:none}}
+.boot-track{position:relative;width:min(300px,84vw);height:5px;background:rgba(255,255,255,.1)}
+.boot-track i{position:relative;overflow:hidden}
+.boot-track i:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.7),transparent 70%);transform:translateX(-100%);animation:btshim 1s linear infinite}
+@keyframes btshim{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){#boot-screen *{animation-duration:.01s!important;animation-iteration-count:1!important}}
+
+/* ---- landing polish ---- */
+.nav{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.hero h1 .grad,h2 .grad{background-size:200% auto;animation:btflow 6s linear infinite}
+@keyframes btflow{to{background-position:200% center}}
+.card{transition:transform .25s,border-color .25s,box-shadow .25s}
+.card:hover{transform:translateY(-4px);border-color:rgba(45,255,160,.35);box-shadow:0 18px 40px -22px var(--a)}
+.win{box-shadow:0 30px 80px -40px var(--a2),0 0 0 1px rgba(255,255,255,.06)}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;max-width:1000px;margin:26px auto 0}
+.step{position:relative;padding:22px;border:1px solid var(--line2);border-radius:var(--r);background:var(--panel);overflow:hidden}
+.step b{display:block;font:800 13px/1 ui-monospace,monospace;letter-spacing:.14em;color:var(--a);margin-bottom:12px}
+.step h3{margin:0 0 6px;font-size:18px}.step p{margin:0;color:var(--mute);font-size:14.5px}
+.step:before{content:"";position:absolute;left:0;top:0;height:2px;width:100%;background:linear-gradient(90deg,var(--a),var(--a2),transparent)}
+.faq{max-width:760px;margin:26px auto 0;border-top:1px solid var(--line2)}
+.faq details{border-bottom:1px solid var(--line2);padding:4px 2px}
+.faq summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:14px;padding:16px 0;font-weight:600}
+.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:"+";color:var(--a);font-size:20px;transition:transform .25s}
+.faq details[open] summary:after{transform:rotate(45deg)}.faq details p{margin:0 0 16px;color:var(--mute)}
+.contact{max-width:760px;margin:0 auto;padding:26px;border:1px solid var(--line2);border-radius:var(--r);background:linear-gradient(135deg,rgba(45,255,160,.07),rgba(25,195,255,.05))}
+.contact small{letter-spacing:.2em;color:var(--mute);font-size:11px}.contact a.mail{display:block;margin:6px 0 14px;font-size:clamp(17px,5vw,24px);font-weight:700;color:var(--text);word-break:break-all}

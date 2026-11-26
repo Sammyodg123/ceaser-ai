@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, conversation_id TEXT RE
 CREATE TABLE IF NOT EXISTS payments(id TEXT PRIMARY KEY, user_id TEXT, provider TEXT, plan TEXT, amount INT, ref TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 `);
 
+try { db.exec('ALTER TABLE conversations ADD COLUMN manus_task TEXT'); } catch (e) { /* already exists */ }
+
 class HttpError extends Error { constructor(status, code, message, details) { super(message); this.status = status; this.code = code; this.details = details; } }
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const id = () => crypto.randomUUID();
@@ -57,20 +59,6 @@ const mailer = env.SMTP_USER ? nodemailer.createTransport({
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
 }) : null;
 async function sendMail(to, subject, html) {
-  if (env.BREVO_API_KEY) {
-    const m = /^(.*)<(.+)>$/.exec(env.MAIL_FROM || '');
-    const sender = m ? { name: m[1].trim().replace(/^"|"$/g, ''), email: m[2].trim() } : { name: 'CEASER AI', email: env.SMTP_USER };
-    const r = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'api-key': env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ sender, to: [{ email: to }], subject, htmlContent: html }),
-    });
-    if (!r.ok) throw new Error('Brevo ' + r.status + ' ' + await r.text());
-    return;
-  }
-  return sendMailSmtp(to, subject, html);
-}
-async function sendMailSmtp(to, subject, html) {
   if (!mailer) { console.log(`[MAIL not configured] to=${to} subject=${subject}\n${html.replace(/<[^>]+>/g, ' ')}`); return; }
   await mailer.sendMail({ from: env.MAIL_FROM || env.SMTP_USER, to, subject, html });
 }
