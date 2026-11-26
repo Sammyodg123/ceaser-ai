@@ -160,17 +160,17 @@
     var signup = mode === 'signup', forgot = mode === 'forgot';
     var title = forgot ? 'Reset password' : signup ? 'Create account' : 'Welcome back';
     var sub = forgot ? 'We’ll email you a reset link.' : signup ? 'Free to start. No card needed.' : 'Log in to continue.';
-    var ov = el('<div class="ov" id="ov"><div class="ringwrap' + (forgot ? ' forgotmode' : '') + '"><div class="ring"></div><div class="modal neon"><div class="grab"></div><button class="x" aria-label="Close">×</button>' +
-      '<div class="mlogo"><div class="dot">C</div></div><div class="auth-kicker">' + (forgot ? 'PASSWORD RECOVERY · SECURE' : 'SECURE ACCESS · ENCRYPTED') + '</div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
+    var ov = el('<div class="ov authov" id="ov"><i class="blob b1"></i><i class="blob b2"></i><i class="shape s1"></i><i class="shape s2"></i><i class="shape s3"></i><div class="otpwrap authwrap' + (forgot ? ' forgotmode' : '') + '"><div class="otpcard authcard"><div class="grab"></div><button class="x" aria-label="Close">×</button>' +
+      '<div class="mlogo"><div class="dot">C</div></div><div class="otp-kicker"><i></i>' + (forgot ? 'Password recovery' : 'Secure access') + '</div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
       (signup ? fld('name', 'text', 'Your name', 'name') : '') +
       fld('email', 'email', 'Email address', 'email', ' inputmode="email" autocapitalize="none"') +
       (forgot ? '' : fld('pass', 'password', signup ? 'Password (min 8 characters)' : 'Password', signup ? 'new-password' : 'current-password')) +
       (signup ? '<input id="website" class="hide" tabindex="-1" autocomplete="off">' : '') +
       '<div class="err" id="err"></div><button class="btn go" id="go"><span>' + (forgot ? 'Send reset link' : signup ? 'Create account' : 'Log in') + '</span><i class="spin"></i></button>' +
       '<div class="row"><span>' + (signup ? 'Have an account? <button class="link" id="sw">Log in</button>' : forgot ? '<button class="link" id="sw">Back to login</button>' : 'New here? <button class="link" id="sw">Sign up</button>') + '</span>' +
-      (!signup && !forgot ? '<button class="link" id="fg">Forgot password?</button>' : '') + '</div></div></div></div>');
+      (!signup && !forgot ? '<button class="link" id="fg">Forgot password?</button>' : '') + '</div></div></div>');
     document.body.appendChild(ov);
-    var err = ov.querySelector('#err'), go = ov.querySelector('#go'), card = ov.querySelector('.modal');
+    var err = ov.querySelector('#err'), go = ov.querySelector('#go'), card = ov.querySelector('.authcard');
     function close() { ov.classList.add('out'); setTimeout(function () { ov.remove(); }, 180); }
     ov.querySelector('.x').onclick = close;
     ov.addEventListener('mousedown', function (e) { if (e.target === ov) close(); });
@@ -368,7 +368,7 @@
   function finishStartup() {
     var screen = document.getElementById('boot-screen'), progress = document.getElementById('boot-progress'), value = 0;
     var tm = setInterval(function () { value = Math.min(100, value + 5); if (progress) progress.textContent = value + '%'; if (value >= 100) clearInterval(tm); }, 50);
-    var wait = Math.max(0, 1150 - (performance.now() - startupAt));
+    var wait = Math.max(0, 2400 - (performance.now() - startupAt));
     setTimeout(function () { if (!screen) return; screen.classList.add('done'); setTimeout(function () { screen.remove(); }, 280); }, wait);
   }
   (async function boot() {
