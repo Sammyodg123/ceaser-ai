@@ -68,15 +68,15 @@
   function landing() {
     clearTimers();
     var n = el('<div>' +
-      '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div>' +
+      '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
       '<a class="nl" href="#features">Features</a><a class="nl" href="#plans">Pricing</a>' +
-      '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button></nav>' +
+      '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button></div></nav>' +
       '<header class="hero"><div><div class="pill"><b></b>Online and ready</div>' +
       '<h1>Your AI for <span class="type" id="ty"></span><br><span class="grad">built to ship.</span></h1>' +
       '<p class="lead">Chat, write, debug and build with an assistant that streams answers instantly, remembers your conversations and never gets in your way.</p>' +
       '<div class="cta"><button class="btn lg" id="su2">Start free →</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
       '<div class="stats"><div><b>20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
-      '<div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="body" id="demo"></div></div></header>' +
+      '<div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="demo-tools"><span>Live prompt preview</span><button id="replay">Replay</button></div><div class="body" id="demo"></div></div></header>' +
       '<section class="sec" id="features"><h2 class="rv">Everything you need, <span class="grad">nothing you don’t</span></h2><p class="sub rv">Fast, focused and designed to feel great on your phone.</p><div class="grid">' +
       feat('⚡', 'Instant streaming', 'Watch answers appear word by word instead of waiting for a wall of text.') +
       feat('💻', 'Code that works', 'Syntax-friendly code blocks with one-tap copy. Debug, refactor, explain.') +
@@ -89,6 +89,10 @@
     $app.replaceChildren(n);
     n.querySelector('#li').onclick = function () { authModal('login'); };
     n.querySelector('#su').onclick = n.querySelector('#su2').onclick = function () { authModal('signup'); };
+    var nav = n.querySelector('.nav'), navmenu = n.querySelector('#navmenu');
+    navmenu.onclick = function () { nav.classList.toggle('open'); navmenu.textContent = nav.classList.contains('open') ? '×' : '☰'; };
+    n.querySelectorAll('.navlinks a').forEach(function (a) { a.onclick = function () { nav.classList.remove('open'); navmenu.textContent = '☰'; }; });
+    n.querySelector('#replay').onclick = function () { demoLoop(n.querySelector('#demo')); };
     reveal(n); typeLoop(n.querySelector('#ty')); demoLoop(n.querySelector('#demo'));
     renderPlans(n.querySelector('#pl'));
   }
@@ -157,7 +161,7 @@
     var title = forgot ? 'Reset password' : signup ? 'Create account' : 'Welcome back';
     var sub = forgot ? 'We’ll email you a reset link.' : signup ? 'Free to start. No card needed.' : 'Log in to continue.';
     var ov = el('<div class="ov" id="ov"><div class="ringwrap"><div class="ring"></div><div class="modal neon"><button class="x" aria-label="Close">×</button>' +
-      '<div class="mlogo"><div class="dot">C</div></div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
+      '<div class="mlogo"><div class="dot">C</div></div><div class="auth-kicker">SECURE ACCESS · ENCRYPTED</div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
       (signup ? fld('name', 'text', 'Your name', 'name') : '') +
       fld('email', 'email', 'Email address', 'email', ' inputmode="email" autocapitalize="none"') +
       (forgot ? '' : fld('pass', 'password', signup ? 'Password (min 8 characters)' : 'Password', signup ? 'new-password' : 'current-password')) +
@@ -201,7 +205,7 @@
     var N = 6, em = S.user ? S.user.email : '';
     var n = el('<div class="otpscene"><i class="blob b1"></i><i class="blob b2"></i><i class="shape s1"></i><i class="shape s2"></i><i class="shape s3"></i>' +
       '<div class="otpwrap"><div class="otpcard" id="card"><div class="grab"></div>' +
-      '<div class="otpstate" id="form"><div class="mlogo"><div class="dot">C</div></div><h2>Verify your email</h2><p class="s">Enter the ' + N + '-digit code we sent to<br><b>' + esc(em) + '</b></p>' +
+      '<div class="otpstate" id="form"><div class="mlogo"><div class="dot">C</div></div><div class="otp-kicker"><i></i>Auto-detect ready</div><h2>OTP Verification</h2><p class="s">Enter the ' + N + '-digit code we sent to<br><b>' + esc(em) + '</b></p>' +
       '<div class="otp" id="otp">' + new Array(N + 1).join('<input class="ob" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Digit">') + '</div>' +
       '<div class="err c" id="err"></div><button class="btn go" id="go"><span>Verify</span><i class="spin"></i></button>' +
       '<div class="resend">Didn’t receive the code? <button class="link" id="rs" disabled>Resend in <b id="cd">30</b>s</button></div></div>' +
