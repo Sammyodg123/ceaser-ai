@@ -189,7 +189,7 @@
         else {
           var ref = new URLSearchParams(location.search).get('ref') || undefined;
           var r = await api('POST', signup ? '/api/auth/signup' : '/api/auth/login', signup ? { name: v('name'), email: v('email'), password: v('pass'), website: v('website'), ref: ref } : { email: v('email'), password: v('pass') });
-          S.user = r.user; ov.remove(); route(); return;
+          S.user = r.user; ov.remove(); loadingView(signup ? 'Setting up your workspace…' : 'Loading your workspace…', route); return;
         }
       } catch (e) { fail(e.message); }
       go.disabled = false; go.classList.remove('load');
@@ -199,6 +199,15 @@
   }
 
   function simpleCard(inner) { var n = el('<div class="center"><div class="modal" style="position:relative">' + inner + '</div></div>'); $app.replaceChildren(n); return n; }
+
+  function loadingView(label, next) {
+    clearTimers();
+    var n = el('<div class="bootload"><div class="boot-orb"><div class="dot">C</div></div><div class="boot-kicker">CEASER AI · SECURE SESSION</div><h2>Almost there</h2><p class="s" id="bootlabel">' + esc(label) + '</p><div class="boot-track"><i></i></div><div class="boot-meta"><span>AUTHENTICATING</span><b id="bootpct">0%</b></div></div>');
+    $app.replaceChildren(n);
+    var pct = n.querySelector('#bootpct'), value = 0;
+    var tm = setInterval(function () { value = Math.min(100, value + 4); pct.textContent = value + '%'; if (value >= 100) clearInterval(tm); }, 45);
+    setTimeout(function () { if (n.isConnected) next(); }, 1200);
+  }
 
   function verifyView(token) {
     clearTimers();
@@ -216,7 +225,8 @@
     boxes[0].setAttribute('autocomplete', 'one-time-code');
     function val() { return boxes.map(function (b) { return b.value; }).join(''); }
     function paint() { boxes.forEach(function (b) { b.classList.toggle('f', !!b.value); }); }
-    function fill(s) { s = String(s).replace(/\D/g, '').slice(0, N); boxes.forEach(function (b, i) { b.value = s[i] || ''; }); paint(); var i = Math.min(s.length, N - 1); boxes[i].focus(); if (s.length === N) verify({ code: s }); }
+    function roll(b) { b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll'); }
+    function fill(s) { s = String(s).replace(/\D/g, '').slice(0, N); boxes.forEach(function (b, i) { b.value = s[i] || ''; if (s[i]) roll(b); }); paint(); var i = Math.min(s.length, N - 1); boxes[i].focus(); if (s.length === N) verify({ code: s }); }
     async function verify(body) {
       if (busy) return; busy = true; err.className = 'err c'; err.textContent = ''; go.classList.add('load'); go.disabled = true;
       try {
@@ -224,7 +234,7 @@
         n.querySelector('#form').classList.add('hide'); n.querySelector('#ok').classList.remove('hide'); card.classList.add('good');
         setTimeout(function () { history.replaceState(null, '', '/'); route(); }, 1300); return;
       } catch (e) {
-        err.textContent = e.message; card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+        err.textContent = e.status >= 400 && e.status < 500 ? 'That code isn’t right. Try again.' : (e.message || 'Could not verify the code. Try again.'); card.className = 'otpcard error'; void card.offsetWidth; card.classList.add('shake');
         boxes.forEach(function (b) { b.classList.add('bad'); }); setTimeout(function () { boxes.forEach(function (b) { b.classList.remove('bad'); b.value = ''; }); paint(); boxes[0].focus(); }, 600);
       }
       busy = false; go.classList.remove('load'); go.disabled = false;
@@ -233,7 +243,7 @@
       b.addEventListener('input', function () {
         var d = b.value.replace(/\D/g, '');
         if (d.length > 1) return fill(d);
-        b.value = d; paint(); if (d && i < N - 1) boxes[i + 1].focus();
+        b.value = d; if (d) roll(b); paint(); if (d && i < N - 1) boxes[i + 1].focus();
         if (val().length === N) verify({ code: val() });
       });
       b.addEventListener('keydown', function (e) {
