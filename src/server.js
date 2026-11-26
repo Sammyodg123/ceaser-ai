@@ -20,7 +20,13 @@ app.use(auth.loadUser);
 app.use('/api', (req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   const origin = req.headers.origin;
-  if (origin && origin.replace(/\/$/, '') !== cfg.url && cfg.prod) return next(new HttpError(403, 'bad_origin', 'Bad origin.'));
+  if (origin && cfg.prod) {
+    const o = origin.replace(/\/$/, '');
+    let oHost = ''; try { oHost = new URL(o).host; } catch {}
+    const extra = (process.env.ALLOWED_ORIGINS || '').split(',').map((x) => x.trim().replace(/\/$/, '')).filter(Boolean);
+    const ok = o === cfg.url || oHost === req.get('host') || extra.includes(o);
+    if (!ok) return next(new HttpError(403, 'bad_origin', 'Bad origin.'));
+  }
   if (!req.cookies.cc_csrf || req.headers['x-csrf-token'] !== req.cookies.cc_csrf) return next(new HttpError(403, 'csrf', 'Security token missing. Refresh the page.'));
   next();
 });
