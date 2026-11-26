@@ -71,7 +71,7 @@
       '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
       '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button></div></nav>' +
-      '<header class="hero"><div><div class="pill"><b></b>Online and ready</div>' +
+      '<header class="hero"><div><div class="pill"><b></b>CEASER AI · Online and ready</div>' +
       '<h1>Your AI for <span class="type" id="ty"></span><br><span class="grad">built to ship.</span></h1>' +
       '<p class="lead">Chat, write, debug and build with an assistant that streams answers instantly, remembers your conversations and never gets in your way.</p>' +
       '<div class="cta"><button class="btn lg" id="su2">Start free →</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
@@ -276,17 +276,18 @@
   async function logout() { try { await api('POST', '/api/auth/logout'); } catch (e) {} S.user = null; S.convs = []; S.cur = null; S.msgs = []; route(); }
 
   /* ---------- chat ---------- */
-  var SUGGEST = [['💻 Write code', 'Write a Python script that renames files by date'], ['🧠 Explain', 'Explain how APIs work like I’m 12'], ['🐞 Debug', 'Why does my JavaScript return undefined?'], ['✍️ Draft', 'Write a friendly email asking for a deadline extension']];
+  var SUGGEST = [['</>', 'Build a responsive portfolio website with a dark theme'], ['?', 'Explain how JWT authentication works with an example'], ['!', 'Find the bug in my JavaScript function'], ['API', 'Plan a REST API for a task manager with Express and MongoDB']];
   function chatView() {
     clearTimers();
-    var n = el('<div class="chat"><aside class="side" id="side"><button class="btn" id="new">＋ New chat</button><div class="list" id="list"></div>' +
+    var n = el('<div class="chat"><aside class="side" id="side"><div class="sbrand"><div class="dot">C</div>CEASER <small>AI</small></div><button class="btn" id="new">＋ New chat</button><input class="ssearch" id="ssearch" placeholder="Search chats" autocomplete="off"><div class="list" id="list"></div><div class="usage"><div class="ur"><span class="pl" id="upl">Free</span><b id="ubal">…</b></div><div class="bar"><i id="ubar"></i></div><small id="ureset">Tokens left</small></div>' +
       '<div class="me"><div class="av">' + esc(initial(S.user.name)) + '</div><div class="n">' + esc(S.user.name) + '<small>' + esc(S.user.email) + '</small></div><button class="link" id="lo">Log out</button></div></aside>' +
       '<section class="main"><div class="top"><button class="menu" id="menu">☰</button><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><span class="chip hide" id="bal"></span></div>' +
       '<div class="msgs" id="msgs"><div class="inner" id="inner"></div></div>' +
-      '<div class="dock"><div class="comp"><textarea id="in" rows="1" placeholder="Message CEASER AI…"></textarea><button class="btn" id="send">Send</button></div></div></section></div>');
+      '<div class="dock"><div class="comp"><textarea id="in" rows="1" placeholder="Message CEASER AI…"></textarea><button class="btn" id="send" aria-label="Send">↑</button></div><p class="hint">CEASER AI can make mistakes. Verify important information.</p></div></section></div>');
     $app.replaceChildren(n);
     ui = { side: n.querySelector('#side'), list: n.querySelector('#list'), msgs: n.querySelector('#msgs'), inner: n.querySelector('#inner'), input: n.querySelector('#in'), send: n.querySelector('#send'), bal: n.querySelector('#bal'), main: n.querySelector('.main') };
     n.querySelector('#lo').onclick = logout;
+    n.querySelector('#ssearch').oninput = function () { var q = this.value.toLowerCase(); ui.list.querySelectorAll('.item').forEach(function (it) { it.style.display = it.textContent.toLowerCase().indexOf(q) < 0 ? 'none' : ''; }); };
     var mask = null;
     function toggle(open) { ui.side.classList.toggle('open', open); if (open && !mask) { mask = el('<div class="mask"></div>'); mask.onclick = function () { toggle(false); }; document.body.appendChild(mask); } if (!open && mask) { mask.remove(); mask = null; } }
     ui.toggle = toggle;
@@ -303,7 +304,7 @@
     loadConvs(); renderMsgs(); loadBalance();
   }
   async function loadBalance() {
-    try { var b = (await api('GET', '/api/tokens')).balance || {}; if (typeof b.remaining === 'number') { ui.bal.textContent = '⚡ ' + b.remaining.toLocaleString() + ' tokens'; ui.bal.classList.remove('hide'); } } catch (e) {}
+    try { var b = (await api('GET', '/api/tokens')).balance || {}; if (typeof b.remaining === 'number') { ui.bal.textContent = '⚡ ' + b.remaining.toLocaleString() + ' tokens'; ui.bal.classList.remove('hide'); var ub = document.getElementById('ubal'); if (ub) { ub.textContent = b.remaining.toLocaleString() + ' tokens left'; document.getElementById('ubar').style.width = Math.max(2, Math.min(100, b.remaining / (b.total || b.limit || 1) * 100)) + '%'; document.getElementById('upl').textContent = (b.plan || 'free').replace(/^./, function (c) { return c.toUpperCase(); }); if (b.resetAt) document.getElementById('ureset').textContent = 'Resets ' + new Date(b.resetAt).toLocaleDateString(); } } } catch (e) {}
   }
   async function loadConvs() { try { S.convs = (await api('GET', '/api/chat/conversations')).conversations; renderList(); } catch (e) { toast(e.message); } }
   function renderList() {
@@ -322,8 +323,8 @@
   function renderMsgs() {
     ui.inner.replaceChildren();
     if (!S.msgs.length) {
-      var e = el('<div class="empty"><div class="orb"></div><h2>Hi ' + esc((S.user.name || '').split(' ')[0]) + ', <span class="grad">what are we building?</span></h2><p>Ask anything. I’ll stream the answer live.</p><div class="sug"></div></div>');
-      SUGGEST.forEach(function (s) { var b = el('<button>' + esc(s[0]) + '<small>' + esc(s[1]) + '</small></button>'); b.onclick = function () { sendMsg(s[1]); }; e.querySelector('.sug').appendChild(b); });
+      var e = el('<div class="empty"><h2>Welcome to CEASER AI.<br>What would you like to create today?</h2><p>Think. Create. Build. Ship.</p><div class="sug"></div></div>');
+      SUGGEST.forEach(function (s) { var b = el('<button><i>' + esc(s[0]) + '</i><span>' + esc(s[1]) + '</span></button>'); b.onclick = function () { sendMsg(s[1]); }; e.querySelector('.sug').appendChild(b); });
       ui.inner.appendChild(e); return;
     }
     S.msgs.forEach(function (m) { ui.inner.appendChild(msgNode(m)); });
