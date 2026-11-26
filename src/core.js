@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./env');
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const Database = require('better-sqlite3');
 const nodemailer = require('nodemailer');
@@ -53,7 +53,7 @@ const inMins = (m) => new Date(Date.now() + m * 6e4).toISOString();
 
 // ---------- email ----------
 const mailer = env.SMTP_USER ? nodemailer.createTransport({
-  host: env.SMTP_HOST || 'smtp.gmail.com', port: +env.SMTP_PORT || 465, secure: (+env.SMTP_PORT || 465) === 465,
+  host: env.SMTP_HOST || 'smtp.gmail.com', port: +env.SMTP_PORT || 465, secure: env.SMTP_SECURE ? String(env.SMTP_SECURE).toLowerCase() === 'true' : (+env.SMTP_PORT || 465) === 465,
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
 }) : null;
 async function sendMail(to, subject, html) {
