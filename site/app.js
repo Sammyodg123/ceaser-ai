@@ -160,8 +160,8 @@
     var signup = mode === 'signup', forgot = mode === 'forgot';
     var title = forgot ? 'Reset password' : signup ? 'Create account' : 'Welcome back';
     var sub = forgot ? 'We’ll email you a reset link.' : signup ? 'Free to start. No card needed.' : 'Log in to continue.';
-    var ov = el('<div class="ov" id="ov"><div class="ringwrap"><div class="ring"></div><div class="modal neon"><button class="x" aria-label="Close">×</button>' +
-      '<div class="mlogo"><div class="dot">C</div></div><div class="auth-kicker">SECURE ACCESS · ENCRYPTED</div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
+    var ov = el('<div class="ov" id="ov"><div class="ringwrap' + (forgot ? ' forgotmode' : '') + '"><div class="ring"></div><div class="modal neon"><div class="grab"></div><button class="x" aria-label="Close">×</button>' +
+      '<div class="mlogo"><div class="dot">C</div></div><div class="auth-kicker">' + (forgot ? 'PASSWORD RECOVERY · SECURE' : 'SECURE ACCESS · ENCRYPTED') + '</div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
       (signup ? fld('name', 'text', 'Your name', 'name') : '') +
       fld('email', 'email', 'Email address', 'email', ' inputmode="email" autocapitalize="none"') +
       (forgot ? '' : fld('pass', 'password', signup ? 'Password (min 8 characters)' : 'Password', signup ? 'new-password' : 'current-password')) +
