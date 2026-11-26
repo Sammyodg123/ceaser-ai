@@ -189,7 +189,7 @@
         else {
           var ref = new URLSearchParams(location.search).get('ref') || undefined;
           var r = await api('POST', signup ? '/api/auth/signup' : '/api/auth/login', signup ? { name: v('name'), email: v('email'), password: v('pass'), website: v('website'), ref: ref } : { email: v('email'), password: v('pass') });
-          S.user = r.user; ov.remove(); loadingView(signup ? 'Setting up your workspace…' : 'Loading your workspace…', route); return;
+          S.user = r.user; ov.remove(); route(); return;
         }
       } catch (e) { fail(e.message); }
       go.disabled = false; go.classList.remove('load');
@@ -199,15 +199,6 @@
   }
 
   function simpleCard(inner) { var n = el('<div class="center"><div class="modal" style="position:relative">' + inner + '</div></div>'); $app.replaceChildren(n); return n; }
-
-  function loadingView(label, next) {
-    clearTimers();
-    var n = el('<div class="bootload"><div class="boot-orb"><div class="dot">C</div></div><div class="boot-kicker">CEASER AI · SECURE SESSION</div><h2>Almost there</h2><p class="s" id="bootlabel">' + esc(label) + '</p><div class="boot-track"><i></i></div><div class="boot-meta"><span>AUTHENTICATING</span><b id="bootpct">0%</b></div></div>');
-    $app.replaceChildren(n);
-    var pct = n.querySelector('#bootpct'), value = 0;
-    var tm = setInterval(function () { value = Math.min(100, value + 4); pct.textContent = value + '%'; if (value >= 100) clearInterval(tm); }, 45);
-    setTimeout(function () { if (n.isConnected) next(); }, 1200);
-  }
 
   function verifyView(token) {
     clearTimers();
@@ -373,8 +364,15 @@
     if (!S.user.emailVerified) return verifyView(p === '/verify-email' ? q.get('token') : null);
     chatView();
   }
+  var startupAt = performance.now();
+  function finishStartup() {
+    var screen = document.getElementById('boot-screen'), progress = document.getElementById('boot-progress'), value = 0;
+    var tm = setInterval(function () { value = Math.min(100, value + 5); if (progress) progress.textContent = value + '%'; if (value >= 100) clearInterval(tm); }, 50);
+    var wait = Math.max(0, 1150 - (performance.now() - startupAt));
+    setTimeout(function () { if (!screen) return; screen.classList.add('done'); setTimeout(function () { screen.remove(); }, 280); }, wait);
+  }
   (async function boot() {
     try { await ensureCsrf(); S.user = (await api('GET', '/api/auth/me')).user; } catch (e) { S.user = null; }
-    route();
+    route(); finishStartup();
   })();
 })();
