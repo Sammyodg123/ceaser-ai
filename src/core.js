@@ -1,0 +1,94 @@
+require('dotenv').config();
+const fs = require('fs'), path = require('path'), crypto = require('crypto');
+const Database = require('better-sqlite3');
+const nodemailer = require('nodemailer');
+
+const env = process.env;
+const cfg = {
+  prod: env.NODE_ENV === 'production',
+  port: +env.PORT || 3000,
+  name: env.APP_NAME || 'CEASER AI',
+  url: (env.APP_URL || 'http://localhost:3000').replace(/\/$/, ''),
+  creator: env.CREATOR_NAME || 'Ceaser',
+  email: env.CONTACT_EMAIL || '',
+  adminEmail: (env.ADMIN_EMAIL || '').toLowerCase(),
+  frontend: path.resolve(__dirname, '..', env.FRONTEND_DIR || './site'),
+  stripe: !!env.STRIPE_SECRET_KEY,
+  paypal: !!(env.PAYPAL_CLIENT_ID && env.PAYPAL_SECRET),
+};
+// Edit prices / allowances here
+const PLANS = [
+  { id: 'free', name: 'Free', priceUsd: 0, monthlyTokens: 20000, tokens: 20000, voiceInput: false },
+  { id: 'pro', name: 'Pro', priceUsd: 9, monthlyTokens: 500000, tokens: 500000, voiceInput: true },
+  { id: 'premium', name: 'Premium', priceUsd: 29, monthlyTokens: 2000000, tokens: 2000000, voiceInput: true },
+];
+const planOf = (id) => PLANS.find((p) => p.id === id) || PLANS[0];
+
+fs.mkdirSync(path.dirname(path.resolve(env.DB_PATH || './data/app.db')), { recursive: true });
+const db = new Database(env.DB_PATH || './data/app.db');
+db.pragma('journal_mode = WAL'); db.pragma('foreign_keys = ON');
+db.exec(`
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, name TEXT, email TEXT UNIQUE, pass TEXT, email_verified INT DEFAULT 0,
+  plan TEXT DEFAULT 'free', plan_expires TEXT, role TEXT DEFAULT 'user', locale TEXT DEFAULT 'en', ai_language TEXT DEFAULT 'auto',
+  used INT DEFAULT 0, bonus INT DEFAULT 0, period_end TEXT, ref_code TEXT UNIQUE, referred_by TEXT,
+  stripe_customer TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY, user_id TEXT, expires TEXT);
+CREATE TABLE IF NOT EXISTS otp(hash TEXT PRIMARY KEY, user_id TEXT, kind TEXT, expires TEXT);
+CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, user_id TEXT, title TEXT DEFAULT 'New conversation',
+  pinned INT DEFAULT 0, last_message_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, conversation_id TEXT REFERENCES conversations(id) ON DELETE CASCADE,
+  role TEXT, content TEXT, status TEXT DEFAULT 'complete', model TEXT, tokens_in INT DEFAULT 0, tokens_out INT DEFAULT 0,
+  feedback TEXT, seq INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS payments(id TEXT PRIMARY KEY, user_id TEXT, provider TEXT, plan TEXT, amount INT, ref TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+`);
+
+class HttpError extends Error { constructor(status, code, message, details) { super(message); this.status = status; this.code = code; this.details = details; } }
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const id = () => crypto.randomUUID();
+const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+const rand = (n = 32) => crypto.randomBytes(n).toString('hex');
+const now = () => new Date().toISOString();
+const inDays = (d) => new Date(Date.now() + d * 864e5).toISOString();
+const inMins = (m) => new Date(Date.now() + m * 6e4).toISOString();
+
+// ---------- email ----------
+const mailer = env.SMTP_USER ? nodemailer.createTransport({
+  host: env.SMTP_HOST || 'smtp.gmail.com', port: +env.SMTP_PORT || 465, secure: (+env.SMTP_PORT || 465) === 465,
+  auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+}) : null;
+async function sendMail(to, subject, html) {
+  if (!mailer) { console.log(`[MAIL not configured] to=${to} subject=${subject}\n${html.replace(/<[^>]+>/g, ' ')}`); return; }
+  await mailer.sendMail({ from: env.MAIL_FROM || env.SMTP_USER, to, subject, html });
+}
+
+// ---------- tokens / balance ----------
+function refreshPeriod(u) {
+  if (u.plan !== 'free' && u.plan_expires && u.plan_expires < now()) {
+    db.prepare("UPDATE users SET plan='free', plan_expires=NULL WHERE id=?").run(u.id);
+  }
+  const cur = db.prepare('SELECT * FROM users WHERE id=?').get(u.id);
+  if (!cur.period_end || cur.period_end < now()) {
+    db.prepare('UPDATE users SET used=0, period_end=? WHERE id=?').run(inDays(30), u.id);
+  }
+  return db.prepare('SELECT * FROM users WHERE id=?').get(u.id);
+}
+function balanceOf(u) {
+  u = refreshPeriod(u);
+  const limit = planOf(u.plan).monthlyTokens, used = u.used;
+  const allowance = Math.max(0, limit - used);
+  return { limit, used, bonus: u.bonus, remaining: allowance + u.bonus, allowance, total: limit + u.bonus, resetAt: u.period_end, nextReset: u.period_end, plan: u.plan };
+}
+function spend(userId, tokens) {
+  const u = db.prepare('SELECT * FROM users WHERE id=?').get(userId);
+  const allowance = Math.max(0, planOf(u.plan).monthlyTokens - u.used);
+  const fromAllowance = Math.min(allowance, tokens), fromBonus = Math.min(u.bonus, tokens - fromAllowance);
+  db.prepare('UPDATE users SET used=used+?, bonus=bonus-? WHERE id=?').run(fromAllowance + (tokens - fromAllowance - fromBonus), fromBonus, userId);
+}
+
+const userDTO = (u) => {
+  const verified = db.prepare('SELECT COUNT(*) c FROM users WHERE referred_by=? AND email_verified=1').get(u.id).c;
+  return { id: u.id, name: u.name, email: u.email, emailVerified: !!u.email_verified, plan: refreshPeriod(u).plan, role: u.role,
+    locale: u.locale, preferences: { aiLanguage: u.ai_language }, createdAt: u.created_at,
+    referral: { code: u.ref_code, link: `${cfg.url}/register?ref=${u.ref_code}`, verifiedCount: verified } };
+};
+module.exports = { cfg, PLANS, planOf, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, balanceOf, spend, userDTO, refreshPeriod };
