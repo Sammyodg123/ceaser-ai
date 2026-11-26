@@ -214,32 +214,83 @@
   function verifyView(token) {
     clearTimers();
     var N = 6, em = S.user ? S.user.email : '';
-    var n = el('<div class="otpscene"><i class="blob b1"></i><i class="blob b2"></i><i class="shape s1"></i><i class="shape s2"></i><i class="shape s3"></i>' +
+    var hexPts = [0, 1, 2, 3, 4, 5].map(function (i) { var a = (-90 + 60 * i) * Math.PI / 180; return (100 * Math.cos(a)).toFixed(1) + ',' + (100 * Math.sin(a)).toFixed(1); }).join(' ');
+    var slots = '';
+    for (var k = 0; k < N; k++) slots += '<div class="o3s" style="--i:' + k + '"><input class="ob" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Digit ' + (k + 1) + '"></div>';
+    var n = el('<div class="otpscene o3"><i class="blob b1"></i><i class="blob b2"></i><i class="shape s1"></i><i class="shape s2"></i><i class="shape s3"></i>' +
       '<div class="otpwrap"><div class="otpcard" id="card"><div class="grab"></div>' +
-      '<div class="otpstate" id="form"><div class="mlogo"><div class="dot">C</div></div><div class="otp-kicker"><i></i>Auto-detect ready</div><h2>OTP Verification</h2><p class="s">Enter the ' + N + '-digit code we sent to<br><b>' + esc(em) + '</b></p>' +
-      '<div class="otp" id="otp">' + new Array(N + 1).join('<input class="ob" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Digit">') + '</div>' +
-      '<div class="err c" id="err"></div><button class="btn go" id="go"><span>Verify</span><i class="spin"></i></button>' +
-      '<div class="resend">Didn’t receive the code? <button class="link" id="rs" disabled>Resend in <b id="cd">30</b>s</button></div></div>' +
-      '<div class="otpstate done hide" id="ok"><svg class="check" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M14 27l8 8 16-17"/></svg><h2>Verified!</h2><p class="s">You’re all set.</p></div>' +
+      '<div class="mlogo"><div class="dot">C</div></div><div class="otp-kicker"><i></i><span id="kick">Auto-detect ready</span></div>' +
+      '<h2 id="ttl">OTP Verification</h2><p class="s" id="sub">Enter the ' + N + '-digit code we sent to<br><b>' + esc(em) + '</b></p>' +
+      '<div class="o3stage" id="stage" data-s="idle"><svg class="o3-hex" viewBox="-100 -100 200 200" aria-hidden="true"><polygon points="' + hexPts + '"/></svg><i class="o3-core"></i>' +
+      '<div class="o3-orbit" id="orbit">' + slots + '</div>' +
+      '<svg class="o3-check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M14 27l8 8 16-17"/></svg></div>' +
+      '<div class="err c" id="err" role="status"></div><button class="btn go" id="go"><span>Verify</span><i class="spin"></i></button>' +
+      '<div class="resend">Didn’t receive the code? <button class="link" id="rs" disabled>Resend in <b id="cd">30</b>s</button></div>' +
       '</div><button class="link lo" id="lo">Use a different account · Log out</button></div></div>');
     $app.replaceChildren(n);
-    var boxes = [].slice.call(n.querySelectorAll('.ob')), err = n.querySelector('#err'), go = n.querySelector('#go'), card = n.querySelector('#card'), busy = false;
+    var stage = n.querySelector('#stage'), orbit = n.querySelector('#orbit'), boxes = [].slice.call(n.querySelectorAll('.ob')),
+      slotEls = [].slice.call(n.querySelectorAll('.o3s')), err = n.querySelector('#err'), go = n.querySelector('#go'),
+      card = n.querySelector('#card'), ttl = n.querySelector('#ttl'), sub = n.querySelector('#sub'), kick = n.querySelector('#kick'), busy = false;
     boxes[0].setAttribute('autocomplete', 'one-time-code');
+    var subHtml = sub.innerHTML;
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, Math.max(0, ms)); }); }
+
+    // geometry: row slot + ring slot for every box (computed in px so it fits any phone width)
+    function layout() {
+      var cw = stage.clientWidth || 300, gap = cw < 340 ? 6 : 10;
+      var w = Math.max(32, Math.min(50, Math.floor((cw - (N - 1) * gap) / N))), h = Math.round(w * 1.28), R = 78;
+      stage.style.setProperty('--w', w + 'px'); stage.style.setProperty('--h', h + 'px');
+      slotEls.forEach(function (s, i) {
+        var a = (-90 + 60 * i) * Math.PI / 180;
+        s.style.setProperty('--rx', ((i - (N - 1) / 2) * (w + gap)).toFixed(1) + 'px');
+        s.style.setProperty('--cx', (R * Math.cos(a)).toFixed(1) + 'px');
+        s.style.setProperty('--cy', (R * Math.sin(a)).toFixed(1) + 'px');
+      });
+    }
+    layout();
+    var onResize = function () { if (!n.isConnected) return removeEventListener('resize', onResize); layout(); };
+    addEventListener('resize', onResize);
+
+    function state(s) {
+      if (s === 'err' || s === 'back') { // freeze the spin where it is so the ring settles smoothly
+        var m = /matrix\(([^)]+)\)/.exec(getComputedStyle(orbit).transform || ''), ang = 0;
+        if (m) { var v = m[1].split(','); ang = Math.atan2(parseFloat(v[1]), parseFloat(v[0])) * 180 / Math.PI; if (ang < 0) ang += 360; }
+        if (s === 'err') orbit.style.setProperty('--a0', ang.toFixed(1) + 'deg');
+      }
+      stage.setAttribute('data-s', s);
+    }
     function val() { return boxes.map(function (b) { return b.value; }).join(''); }
     function paint() { boxes.forEach(function (b) { b.classList.toggle('f', !!b.value); }); }
     function roll(b) { b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll'); }
     function fill(s) { s = String(s).replace(/\D/g, '').slice(0, N); boxes.forEach(function (b, i) { b.value = s[i] || ''; if (s[i]) roll(b); }); paint(); var i = Math.min(s.length, N - 1); boxes[i].focus(); if (s.length === N) verify({ code: s }); }
+
     async function verify(body) {
-      if (busy) return; busy = true; err.className = 'err c'; err.textContent = ''; go.classList.add('load'); go.disabled = true;
+      if (busy) return; busy = true;
+      if (!body.token && (body.code || '').length !== N) { busy = false; err.textContent = 'Enter all ' + N + ' digits.'; return; }
+      err.className = 'err c'; err.textContent = ''; card.classList.remove('error', 'shake');
+      go.classList.add('load'); go.disabled = true; kick.textContent = 'Verifying'; document.activeElement && document.activeElement.blur && document.activeElement.blur();
+      state('load');
+      var t0 = Date.now();
       try {
-        var r = await api('POST', '/api/auth/verify-email', body); S.user = r.user;
-        n.querySelector('#form').classList.add('hide'); n.querySelector('#ok').classList.remove('hide'); card.classList.add('good');
-        setTimeout(function () { history.replaceState(null, '', '/'); route(); }, 1300); return;
+        var r = await api('POST', '/api/auth/verify-email', body);
+        S.user = r.user;
+        await wait(1700 - (Date.now() - t0)); // let the ring finish a nice spin
+        state('ok'); card.classList.add('good'); go.classList.remove('load'); go.querySelector('span').textContent = 'Verified';
+        kick.textContent = 'Success'; ttl.textContent = 'Verified!'; sub.textContent = 'You’re all set.';
+        setTimeout(function () { history.replaceState(null, '', '/'); route(); }, 1700);
+        return;
       } catch (e) {
-        err.textContent = e.status >= 400 && e.status < 500 ? 'That code isn’t right. Try again.' : (e.message || 'Could not verify the code. Try again.'); card.className = 'otpcard error'; void card.offsetWidth; card.classList.add('shake');
-        boxes.forEach(function (b) { b.classList.add('bad'); }); setTimeout(function () { boxes.forEach(function (b) { b.classList.remove('bad'); b.value = ''; }); paint(); boxes[0].focus(); }, 600);
+        await wait(1500 - (Date.now() - t0));
+        err.textContent = e.status >= 400 && e.status < 500 ? 'That code isn’t right. Try again.' : (e.message || 'Could not verify the code. Try again.');
+        state('err'); kick.textContent = 'Try again'; card.classList.add('error'); void card.offsetWidth; card.classList.add('shake');
+        await wait(1500);
+        state('back'); card.classList.remove('error');
+        boxes.forEach(function (b) { b.value = ''; }); paint();
+        await wait(850);
+        if (!n.isConnected) return;
+        orbit.style.removeProperty('--a0'); state('idle'); kick.textContent = 'Auto-detect ready';
+        busy = false; go.classList.remove('load'); go.disabled = false; boxes[0].focus();
       }
-      busy = false; go.classList.remove('load'); go.disabled = false;
     }
     boxes.forEach(function (b, i) {
       b.addEventListener('input', function () {
@@ -258,10 +309,10 @@
       b.addEventListener('paste', function (e) { e.preventDefault(); fill((e.clipboardData || window.clipboardData).getData('text')); });
     });
     go.onclick = function () { verify({ code: val() }); };
-    var rs = n.querySelector('#rs'), cd = n.querySelector('#cd'), left = 30, tm;
-    function tick() { clearInterval(tm); left = 30; rs.disabled = true; rs.innerHTML = 'Resend in <b id="cd">' + left + '</b>s'; tm = setInterval(function () { if (!n.isConnected) return clearInterval(tm); left--; if (left <= 0) { clearInterval(tm); rs.disabled = false; rs.textContent = 'Resend code'; } else rs.querySelector('b').textContent = left; }, 1000); }
+    var rs = n.querySelector('#rs'), left = 30, tm;
+    function tick() { clearInterval(tm); left = 30; rs.disabled = true; rs.innerHTML = 'Resend in <b>' + left + '</b>s'; tm = setInterval(function () { if (!n.isConnected) return clearInterval(tm); left--; if (left <= 0) { clearInterval(tm); rs.disabled = false; rs.textContent = 'Resend code'; } else rs.querySelector('b').textContent = left; }, 1000); }
     tick();
-    rs.onclick = async function () { if (rs.disabled) return; try { await api('POST', '/api/auth/resend-verification'); err.className = 'okk c'; err.textContent = 'Sent! Check your inbox.'; tick(); } catch (e) { err.textContent = e.message; } };
+    rs.onclick = async function () { if (rs.disabled) return; try { await api('POST', '/api/auth/resend-verification'); err.className = 'err okk c'; err.textContent = 'Sent! Check your inbox.'; tick(); } catch (e) { err.className = 'err c'; err.textContent = e.message; } };
     n.querySelector('#lo').onclick = logout;
     if (innerWidth > 720) boxes[0].focus();
     if (token) verify({ token: token });
@@ -378,10 +429,17 @@
   }
   var startupAt = performance.now();
   function finishStartup() {
-    var screen = document.getElementById('boot-screen'), progress = document.getElementById('boot-progress'), value = 0;
-    var tm = setInterval(function () { value = Math.min(100, value + 5); if (progress) progress.textContent = value + '%'; if (value >= 100) clearInterval(tm); }, 50);
-    var wait = Math.max(0, 2800 - (performance.now() - startupAt));
-    setTimeout(function () { if (!screen) return; screen.classList.add('done'); setTimeout(function () { screen.remove(); }, 280); }, wait);
+    var screen = document.getElementById('boot-screen'), progress = document.getElementById('boot-progress'), bar = screen && screen.querySelector('.boot-track i');
+    var MIN = 3000, t0 = startupAt, done = false;
+    function frame(now) {
+      var t = Math.min(1, (now - t0) / MIN), p = 1 - Math.pow(1 - t, 2.2);
+      if (progress) progress.textContent = Math.round(p * 100) + '%';
+      if (bar) bar.style.setProperty('--p', p.toFixed(3));
+      if (t < 1 && !done) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    var wait = Math.max(0, MIN - (performance.now() - startupAt));
+    setTimeout(function () { done = true; if (progress) progress.textContent = '100%'; if (bar) bar.style.setProperty('--p', 1); if (!screen) return; screen.classList.add('done'); setTimeout(function () { screen.remove(); }, 480); }, wait + 150);
   }
   (async function boot() {
     try { await ensureCsrf(); S.user = (await api('GET', '/api/auth/me')).user; } catch (e) { S.user = null; }
