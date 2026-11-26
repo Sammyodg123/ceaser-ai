@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  var VB = '<svg class="vb" viewBox="0 0 24 24" aria-label="Verified"><path d="M12 1.8l2.5 1.7 3-.2 1.2 2.8 2.6 1.5-.6 3 1.2 2.7-2 2.2-.4 3-3 .7-2.2 2.1L12 21l-2.3 1.3-2.2-2.1-3-.7-.4-3-2-2.2L3.3 11.6l-.6-3 2.6-1.5 1.2-2.8 3 .2z" fill="#1d9bf0"/><path d="M7.8 12.2l3 3 5.6-6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var $app = document.getElementById('app');
   var S = { user: null, convs: [], cur: null, msgs: [], busy: false, plans: [] };
   var ui = {};
@@ -49,20 +50,9 @@
 
   /* ---------- background fx ---------- */
   (function () {
-    var rain = el('<canvas id="rain"></canvas>'), au = el('<div class="aurora"><i></i><i></i><i></i></div>'), gl = el('<div id="glow"></div>');
-    document.body.prepend(gl); document.body.prepend(au); document.body.prepend(rain);
+    var bg = el('<div class="gridbg"></div>'), gl = el('<div id="glow"></div>');
+    document.body.prepend(gl); document.body.prepend(bg);
     addEventListener('pointermove', function (e) { gl.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)'; }, { passive: true });
-    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    var x = rain.getContext('2d'), w, h, cols, d, s = 16, last = 0, chars = '01';
-    function fit() { w = rain.width = innerWidth; h = rain.height = innerHeight; cols = Math.ceil(w / s); d = []; for (var i = 0; i < cols; i++) d[i] = Math.random() * h / s; }
-    fit(); addEventListener('resize', fit);
-    (function f(t) {
-      if (t - last > 60 && !document.hidden) {
-        last = t; x.fillStyle = 'rgba(4,6,11,.16)'; x.fillRect(0, 0, w, h); x.fillStyle = '#00ff9d'; x.font = s + 'px monospace';
-        for (var i = 0; i < cols; i++) { x.fillText(chars[Math.random() > .5 ? 1 : 0], i * s, d[i] * s); if (d[i] * s > h && Math.random() > .975) d[i] = 0; d[i]++; }
-      }
-      requestAnimationFrame(f);
-    })(0);
   })();
 
   function reveal(root) {
@@ -78,7 +68,7 @@
   function landing() {
     clearTimers();
     var n = el('<div>' +
-      '<nav class="nav"><div class="logo"><div class="dot">C</div>CEASER <span class="grad">AI</span></div><div class="sp"></div>' +
+      '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div>' +
       '<a class="nl" href="#features">Features</a><a class="nl" href="#plans">Pricing</a>' +
       '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button></nav>' +
       '<header class="hero"><div><div class="pill"><b></b>Online and ready</div>' +
@@ -156,60 +146,108 @@
     run();
   }
 
-  /* ---------- auth modal ---------- */
+  /* ---------- auth modal (neon ring) ---------- */
+  var EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  function fld(id, type, label, ac, extra) {
+    return '<label class="fl"><input id="' + id + '" type="' + type + '" placeholder=" " autocomplete="' + ac + '"' + (extra || '') + '><span>' + label + '</span>' + (type === 'password' ? '<button type="button" class="eye" aria-label="Show password">' + EYE + '</button>' : '') + '</label>';
+  }
   function authModal(mode) {
     var old = document.getElementById('ov'); if (old) old.remove();
     var signup = mode === 'signup', forgot = mode === 'forgot';
-    var title = forgot ? 'Reset password' : signup ? 'Create your account' : 'Welcome back';
+    var title = forgot ? 'Reset password' : signup ? 'Create account' : 'Welcome back';
     var sub = forgot ? 'We’ll email you a reset link.' : signup ? 'Free to start. No card needed.' : 'Log in to continue.';
-    var ov = el('<div class="ov" id="ov"><div class="modal"><button class="x" aria-label="Close">×</button><h2 class="grad">' + title + '</h2><p class="s">' + sub + '</p>' +
-      (signup ? '<input id="name" placeholder="Your name" autocomplete="name">' : '') +
-      '<input id="email" type="email" placeholder="Email" autocomplete="email">' +
-      (forgot ? '' : '<input id="pass" type="password" placeholder="Password' + (signup ? ' (min 8 characters)' : '') + '" autocomplete="' + (signup ? 'new-password' : 'current-password') + '">') +
+    var ov = el('<div class="ov" id="ov"><div class="ringwrap"><div class="ring"></div><div class="modal neon"><button class="x" aria-label="Close">×</button>' +
+      '<div class="mlogo"><div class="dot">C</div></div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
+      (signup ? fld('name', 'text', 'Your name', 'name') : '') +
+      fld('email', 'email', 'Email address', 'email', ' inputmode="email" autocapitalize="none"') +
+      (forgot ? '' : fld('pass', 'password', signup ? 'Password (min 8 characters)' : 'Password', signup ? 'new-password' : 'current-password')) +
       (signup ? '<input id="website" class="hide" tabindex="-1" autocomplete="off">' : '') +
-      '<div class="err" id="err"></div><button class="btn" id="go">' + (forgot ? 'Send reset link' : signup ? 'Create account' : 'Log in') + '</button>' +
+      '<div class="err" id="err"></div><button class="btn go" id="go"><span>' + (forgot ? 'Send reset link' : signup ? 'Create account' : 'Log in') + '</span><i class="spin"></i></button>' +
       '<div class="row"><span>' + (signup ? 'Have an account? <button class="link" id="sw">Log in</button>' : forgot ? '<button class="link" id="sw">Back to login</button>' : 'New here? <button class="link" id="sw">Sign up</button>') + '</span>' +
-      (!signup && !forgot ? '<button class="link" id="fg">Forgot password?</button>' : '') + '</div></div></div>');
+      (!signup && !forgot ? '<button class="link" id="fg">Forgot password?</button>' : '') + '</div></div></div></div>');
     document.body.appendChild(ov);
-    var err = ov.querySelector('#err'), go = ov.querySelector('#go');
-    ov.querySelector('.x').onclick = function () { ov.remove(); };
-    ov.addEventListener('mousedown', function (e) { if (e.target === ov) ov.remove(); });
+    var err = ov.querySelector('#err'), go = ov.querySelector('#go'), card = ov.querySelector('.modal');
+    function close() { ov.classList.add('out'); setTimeout(function () { ov.remove(); }, 180); }
+    ov.querySelector('.x').onclick = close;
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) close(); });
     ov.querySelector('#sw').onclick = function () { authModal(signup || forgot ? 'login' : 'signup'); };
     var fg = ov.querySelector('#fg'); if (fg) fg.onclick = function () { authModal('forgot'); };
-    var first = ov.querySelector('input'); if (first) first.focus();
+    var eye = ov.querySelector('.eye');
+    if (eye) eye.onclick = function () { var p = ov.querySelector('#pass'); var show = p.type === 'password'; p.type = show ? 'text' : 'password'; eye.classList.toggle('on', show); };
+    if (innerWidth > 720) { var first = ov.querySelector('input'); if (first) first.focus(); }
+    function fail(msg) { err.className = 'err'; err.textContent = msg; card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
     async function submit() {
-      err.className = 'err'; err.textContent = ''; go.disabled = true;
+      if (go.disabled) return;
+      err.className = 'err'; err.textContent = ''; go.disabled = true; go.classList.add('load');
       var v = function (id) { var e = ov.querySelector('#' + id); return e ? e.value : ''; };
       try {
         if (forgot) { await api('POST', '/api/auth/forgot-password', { email: v('email') }); err.className = 'okk'; err.textContent = 'If that email exists, a reset link is on its way.'; }
         else {
           var ref = new URLSearchParams(location.search).get('ref') || undefined;
           var r = await api('POST', signup ? '/api/auth/signup' : '/api/auth/login', signup ? { name: v('name'), email: v('email'), password: v('pass'), website: v('website'), ref: ref } : { email: v('email'), password: v('pass') });
-          S.user = r.user; ov.remove(); route();
+          S.user = r.user; ov.remove(); route(); return;
         }
-      } catch (e) { err.textContent = e.message; }
-      go.disabled = false;
+      } catch (e) { fail(e.message); }
+      go.disabled = false; go.classList.remove('load');
     }
     go.onclick = submit;
-    ov.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); if (e.key === 'Escape') ov.remove(); });
+    ov.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); if (e.key === 'Escape') close(); });
   }
 
   function simpleCard(inner) { var n = el('<div class="center"><div class="modal" style="position:relative">' + inner + '</div></div>'); $app.replaceChildren(n); return n; }
 
   function verifyView(token) {
     clearTimers();
-    var n = simpleCard('<h2 class="grad">Verify your email</h2><p class="s">Enter the code we sent to <b>' + esc(S.user ? S.user.email : '') + '</b>. Check spam too.</p>' +
-      '<input id="code" placeholder="Verification code" autocomplete="one-time-code"><div class="err" id="err"></div><button class="btn" id="go">Verify</button>' +
-      '<div class="row"><button class="link" id="rs">Resend code</button><button class="link" id="lo">Log out</button></div>');
-    var err = n.querySelector('#err'), code = n.querySelector('#code');
+    var N = 6, em = S.user ? S.user.email : '';
+    var n = el('<div class="otpscene"><i class="blob b1"></i><i class="blob b2"></i><i class="shape s1"></i><i class="shape s2"></i><i class="shape s3"></i>' +
+      '<div class="otpwrap"><div class="otpcard" id="card"><div class="grab"></div>' +
+      '<div class="otpstate" id="form"><div class="mlogo"><div class="dot">C</div></div><h2>Verify your email</h2><p class="s">Enter the ' + N + '-digit code we sent to<br><b>' + esc(em) + '</b></p>' +
+      '<div class="otp" id="otp">' + new Array(N + 1).join('<input class="ob" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Digit">') + '</div>' +
+      '<div class="err c" id="err"></div><button class="btn go" id="go"><span>Verify</span><i class="spin"></i></button>' +
+      '<div class="resend">Didn’t receive the code? <button class="link" id="rs" disabled>Resend in <b id="cd">30</b>s</button></div></div>' +
+      '<div class="otpstate done hide" id="ok"><svg class="check" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M14 27l8 8 16-17"/></svg><h2>Verified!</h2><p class="s">You’re all set.</p></div>' +
+      '</div><button class="link lo" id="lo">Use a different account · Log out</button></div></div>');
+    $app.replaceChildren(n);
+    var boxes = [].slice.call(n.querySelectorAll('.ob')), err = n.querySelector('#err'), go = n.querySelector('#go'), card = n.querySelector('#card'), busy = false;
+    boxes[0].setAttribute('autocomplete', 'one-time-code');
+    function val() { return boxes.map(function (b) { return b.value; }).join(''); }
+    function paint() { boxes.forEach(function (b) { b.classList.toggle('f', !!b.value); }); }
+    function fill(s) { s = String(s).replace(/\D/g, '').slice(0, N); boxes.forEach(function (b, i) { b.value = s[i] || ''; }); paint(); var i = Math.min(s.length, N - 1); boxes[i].focus(); if (s.length === N) verify({ code: s }); }
     async function verify(body) {
-      err.className = 'err'; err.textContent = '';
-      try { var r = await api('POST', '/api/auth/verify-email', body); S.user = r.user; history.replaceState(null, '', '/'); route(); } catch (e) { err.textContent = e.message; }
+      if (busy) return; busy = true; err.className = 'err c'; err.textContent = ''; go.classList.add('load'); go.disabled = true;
+      try {
+        var r = await api('POST', '/api/auth/verify-email', body); S.user = r.user;
+        n.querySelector('#form').classList.add('hide'); n.querySelector('#ok').classList.remove('hide'); card.classList.add('good');
+        setTimeout(function () { history.replaceState(null, '', '/'); route(); }, 1300); return;
+      } catch (e) {
+        err.textContent = e.message; card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+        boxes.forEach(function (b) { b.classList.add('bad'); }); setTimeout(function () { boxes.forEach(function (b) { b.classList.remove('bad'); b.value = ''; }); paint(); boxes[0].focus(); }, 600);
+      }
+      busy = false; go.classList.remove('load'); go.disabled = false;
     }
-    n.querySelector('#go').onclick = function () { verify({ code: code.value.trim() }); };
-    code.addEventListener('keydown', function (e) { if (e.key === 'Enter') verify({ code: code.value.trim() }); });
-    n.querySelector('#rs').onclick = async function () { try { await api('POST', '/api/auth/resend-verification'); err.className = 'okk'; err.textContent = 'Sent! Check your inbox.'; } catch (e) { err.textContent = e.message; } };
+    boxes.forEach(function (b, i) {
+      b.addEventListener('input', function () {
+        var d = b.value.replace(/\D/g, '');
+        if (d.length > 1) return fill(d);
+        b.value = d; paint(); if (d && i < N - 1) boxes[i + 1].focus();
+        if (val().length === N) verify({ code: val() });
+      });
+      b.addEventListener('keydown', function (e) {
+        if (e.key === 'Backspace' && !b.value && i > 0) { boxes[i - 1].value = ''; boxes[i - 1].focus(); paint(); }
+        else if (e.key === 'ArrowLeft' && i > 0) boxes[i - 1].focus();
+        else if (e.key === 'ArrowRight' && i < N - 1) boxes[i + 1].focus();
+        else if (e.key === 'Enter') verify({ code: val() });
+      });
+      b.addEventListener('focus', function () { b.select(); });
+      b.addEventListener('paste', function (e) { e.preventDefault(); fill((e.clipboardData || window.clipboardData).getData('text')); });
+    });
+    go.onclick = function () { verify({ code: val() }); };
+    var rs = n.querySelector('#rs'), cd = n.querySelector('#cd'), left = 30, tm;
+    function tick() { clearInterval(tm); left = 30; rs.disabled = true; rs.innerHTML = 'Resend in <b id="cd">' + left + '</b>s'; tm = setInterval(function () { if (!n.isConnected) return clearInterval(tm); left--; if (left <= 0) { clearInterval(tm); rs.disabled = false; rs.textContent = 'Resend code'; } else rs.querySelector('b').textContent = left; }, 1000); }
+    tick();
+    rs.onclick = async function () { if (rs.disabled) return; try { await api('POST', '/api/auth/resend-verification'); err.className = 'okk c'; err.textContent = 'Sent! Check your inbox.'; tick(); } catch (e) { err.textContent = e.message; } };
     n.querySelector('#lo').onclick = logout;
+    if (innerWidth > 720) boxes[0].focus();
     if (token) verify({ token: token });
   }
   function resetView(token) {
@@ -227,7 +265,7 @@
     clearTimers();
     var n = el('<div class="chat"><aside class="side" id="side"><button class="btn" id="new">＋ New chat</button><div class="list" id="list"></div>' +
       '<div class="me"><div class="av">' + esc(initial(S.user.name)) + '</div><div class="n">' + esc(S.user.name) + '<small>' + esc(S.user.email) + '</small></div><button class="link" id="lo">Log out</button></div></aside>' +
-      '<section class="main"><div class="top"><button class="menu" id="menu">☰</button><div class="logo"><div class="dot">C</div>CEASER <span class="grad">AI</span></div><div class="sp"></div><span class="chip hide" id="bal"></span></div>' +
+      '<section class="main"><div class="top"><button class="menu" id="menu">☰</button><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><span class="chip hide" id="bal"></span></div>' +
       '<div class="msgs" id="msgs"><div class="inner" id="inner"></div></div>' +
       '<div class="dock"><div class="comp"><textarea id="in" rows="1" placeholder="Message CEASER AI…"></textarea><button class="btn" id="send">Send</button></div></div></section></div>');
     $app.replaceChildren(n);
