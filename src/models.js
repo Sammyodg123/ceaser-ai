@@ -14,7 +14,7 @@ const PROVIDERS = {
   anthropic:  { key: 'ANTHROPIC_API_KEY',  type: 'anthropic', vision: true, label: 'Claude',        model: () => process.env.AI_MODEL || 'claude-sonnet-4-5' },
   manus:      { key: 'MANUS_API_KEY',      type: 'manus',     label: 'Manus',         model: () => 'manus-' + (process.env.MANUS_PROFILE || 'standard') },
   openai:     { key: 'OPENAI_API_KEY',     type: OA, vision: true, label: 'OpenAI',        base: () => process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',            model: () => 'gpt-4o' },
-  gemini:     { key: 'GEMINI_API_KEY',     type: OA, vision: true, label: 'Gemini',        base: () => 'https://generativelanguage.googleapis.com/v1beta/openai',            model: () => 'gemini-2.5-flash', hdr: (k) => ({ 'x-goog-api-key': k }) },
+  gemini:     { key: 'GEMINI_API_KEY',     type: OA, vision: true, label: 'Gemini',        base: () => process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai', model: () => process.env.GEMINI_MODEL || 'gemini-2.5-flash', hdr: (k) => ({ 'x-goog-api-key': k }) },
   meta:       { key: 'LLAMA_API_KEY',      type: OA, label: 'Meta Llama',    base: () => process.env.LLAMA_BASE_URL || 'https://api.llama.com/compat/v1',       model: () => 'Llama-4-Maverick-17B-128E-Instruct-FP8' },
   mistral:    { key: 'MISTRAL_API_KEY',    type: OA, label: 'Mistral',       base: () => 'https://api.mistral.ai/v1',                                          model: () => 'mistral-large-latest' },
   xai:        { key: 'XAI_API_KEY',        type: OA, label: 'Grok (xAI)',    base: () => 'https://api.x.ai/v1',                                                model: () => 'grok-3' },
@@ -83,7 +83,6 @@ function all() {
       const [id, label, desc, prov, cost] = x.split('|').map((s) => (s || '').trim());
       out.push({ id, label: label || id, desc: desc || id, provider: PROVIDERS[prov] ? prov : 'anthropic', cost: Number(cost) || extra() });
     });
-    return out;
   }
   Object.keys(PROVIDERS).forEach((p) => {
     if (!hasKey(p)) return;

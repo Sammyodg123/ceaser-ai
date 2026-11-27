@@ -40,7 +40,8 @@
 #boot-screen .bt-word{margin-top:14px;font-size:clamp(20px,6vw,26px);font-weight:800;letter-spacing:.3em;color:#fff;gap:.12em}
 #boot-screen .bt-word i.ai{background:linear-gradient(135deg,var(--a),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
 #boot-screen .bt-tag{color:rgba(255,255,255,.55);letter-spacing:.3em}
-#boot-screen .bt-steps{color:#b9ffe0;margin-top:22px}
+#boot-screen .bt-steps{color:#b9ffe0;margin-top:22px;height:20px;width:min(300px,84vw);display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
+#boot-screen .bt-steps span{position:static;display:block;opacity:1;transform:none;animation:none}
 #boot-screen .boot-track{width:min(260px,76vw);height:4px;background:rgba(255,255,255,.16);margin-top:14px;border-radius:99px}
 #boot-screen .boot-track i{width:100%;transform:scaleX(var(--p,0));transform-origin:left;animation:none;background:linear-gradient(90deg,var(--a),var(--a2));box-shadow:0 0 14px rgba(45,255,160,.8);border-radius:99px;position:relative;overflow:hidden}
 #boot-screen .boot-track i:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.7),transparent 70%);transform:translateX(-100%);animation:btshim 1s linear infinite}

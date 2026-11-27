@@ -4,6 +4,9 @@ const Database = require('better-sqlite3');
 const nodemailer = require('nodemailer');
 
 const env = process.env;
+// Primary owner identity. This remains an application rule instead of relying
+// on a deployment environment variable, so the owner is recognized on Render.
+const OWNER_EMAIL = 'sammyodg123@gmail.com';
 const cfg = {
   prod: env.NODE_ENV === 'production',
   port: +env.PORT || 3000,
@@ -11,7 +14,7 @@ const cfg = {
   url: (env.APP_URL || 'http://localhost:3000').replace(/\/$/, ''),
   creator: env.CREATOR_NAME || 'Ceaser',
   email: env.CONTACT_EMAIL || '',
-  adminEmail: (env.ADMIN_EMAIL || '').toLowerCase(),
+  adminEmail: OWNER_EMAIL,
   frontend: path.resolve(__dirname, '..', env.FRONTEND_DIR || './site'),
   stripe: !!env.STRIPE_SECRET_KEY,
   paypal: !!(env.PAYPAL_CLIENT_ID && env.PAYPAL_SECRET),
@@ -101,12 +104,23 @@ function spend(userId, tokens) {
   db.prepare('UPDATE users SET used=used+?, bonus=bonus-? WHERE id=?').run(fromAllowance + (tokens - fromAllowance - fromBonus), fromBonus, userId);
 }
 
-// ADMIN_EMAIL may hold several addresses (comma separated). Matching is case-insensitive and read live, so editing it in Admin works at once.
-const isAdminEmail = (e) => { const list = String(process.env.ADMIN_EMAIL || '').toLowerCase().split(/[,;\s]+/).filter(Boolean); return !!e && list.includes(String(e).trim().toLowerCase()); };
+// Normalize addresses for role checks. Gmail ignores dots and plus-tags in the local part.
+const normalizeAdminEmail = (e) => {
+  let email = String(e || '').trim().toLowerCase();
+  const m = /^([^@]+)@(gmail\.com|googlemail\.com)$/.exec(email);
+  if (m) email = m[1].split('+')[0].replace(/\./g, '') + '@gmail.com';
+  return email;
+};
+// The owner is always an admin; ADMIN_EMAIL may still add extra admins.
+const isAdminEmail = (e) => {
+  const email = normalizeAdminEmail(e);
+  const extra = String(process.env.ADMIN_EMAIL || '').split(/[,;\s]+/).map(normalizeAdminEmail).filter(Boolean);
+  return !!email && (email === OWNER_EMAIL || extra.includes(email));
+};
 const userDTO = (u) => {
   const verified = db.prepare('SELECT COUNT(*) c FROM users WHERE referred_by=? AND email_verified=1').get(u.id).c;
   return { id: u.id, name: u.name, email: u.email, emailVerified: !!u.email_verified, plan: refreshPeriod(u).plan, role: isAdminEmail(u.email) ? 'admin' : u.role,
     locale: u.locale, preferences: { aiLanguage: u.ai_language }, createdAt: u.created_at,
     referral: { code: u.ref_code, link: `${cfg.url}/register?ref=${u.ref_code}`, verifiedCount: verified } };
 };
-module.exports = { cfg, PLANS, planOf, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, balanceOf, spend, userDTO, refreshPeriod, isAdminEmail };
+module.exports = { cfg, PLANS, planOf, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, balanceOf, spend, userDTO, refreshPeriod, isAdminEmail, normalizeAdminEmail };

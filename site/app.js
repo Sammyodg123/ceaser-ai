@@ -452,7 +452,7 @@
   }
   var startupAt = performance.now();
   function finishStartup() {
-    var screen = document.getElementById('boot-screen'), progress = document.getElementById('boot-progress'), bar = screen && screen.querySelector('.boot-track i');
+    var screen = document.getElementById('boot-screen'), progress = document.getElementById('btp') || document.getElementById('boot-progress'), bar = screen && screen.querySelector('.boot-track i');
     var MIN = 3000, t0 = startupAt, done = false;
     function frame(now) {
       var t = Math.min(1, (now - t0) / MIN), p = 1 - Math.pow(1 - t, 2.2);

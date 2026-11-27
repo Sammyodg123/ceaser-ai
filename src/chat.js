@@ -256,15 +256,25 @@ async function streamReply(req, res, conv) {
     const base = (process.env.OMEGA_BASE || 'https://api.omegatech.app').replace(/\/$/, '');
     const rawPrompt = splitImages(lastRaw).text.slice(0, 1800);
     const prompt = pl.category === 'uncensored' ? 'Answer in a harsh, blunt, direct style with no filler. Keep the same safety boundaries and do not assist harmful or illegal acts.\n\nUser request:\n' + rawPrompt : rawPrompt;
-    const q = encodeURIComponent(prompt.slice(0, 2200)), m = String(model || 'Qwen3-coder');
-    const route = { wormgpt: `/api/ai/wormgpt?action=chat&message=${q}&newChat=true&forceNew=true`, 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
-      chatai: `/api/ai/Chatai?action=chat&message=${q}&model=chatgpt`, chatbot: `/api/ai/Chatbot?action=chat&message=${q}&needSearch=false`, llamacoder: `/api/ai/llamacoder?action=create&prompt=${q}&quality=high` }[m.toLowerCase()];
-    if (!route) throw new Error('provider 404 unknown omega model');
-    const r = await fetch(base + route, { signal: AbortSignal.any([ac.signal, AbortSignal.timeout(60000)]) });
-    if (!r.ok) throw new Error(`provider ${r.status} omega`);
-    const raw = await r.text(); let j; try { j = JSON.parse(raw); } catch (e) { j = raw; }
+    const q = encodeURIComponent(prompt.slice(0, 2200)), m = String(model || 'Qwen3-coder').toLowerCase();
+    const makeRoute = (name) => ({ wormgpt: `/api/ai/wormgpt?action=chat&message=${q}&newChat=true&forceNew=true`, 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
+      chatai: `/api/ai/Chatai?action=chat&message=${q}&model=chatgpt`, chatbot: `/api/ai/Chatbot?action=chat&message=${q}&needSearch=false`, llamacoder: `/api/ai/llamacoder?action=create&prompt=${q}&quality=high` }[name]);
+    const pool = pl.category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder'] : ['qwen', 'chatai', 'chatbot', 'claude'];
+    const candidates = [m].concat(pool.filter((x) => x !== m));
     const pick = (v, d) => { if (typeof v === 'string') return v; if (!v || typeof v !== 'object' || d > 3) return ''; for (const k of ['result', 'response', 'message', 'answer', 'reply', 'text', 'content', 'output', 'data']) { const t = pick(v[k], d + 1); if (t) return t; } return ''; };
-    const out = String(pick(j, 0) || '').trim(); if (!out) throw new Error('provider 502 omega empty');
+    let out = '', lastErr = null;
+    for (const candidate of candidates) {
+      const route = makeRoute(candidate); if (!route) continue;
+      try {
+        const r = await fetch(base + route, { signal: AbortSignal.any([ac.signal, AbortSignal.timeout(60000)]) });
+        if (!r.ok) throw new Error(`provider ${r.status} omega`);
+        const raw = await r.text(); let j; try { j = JSON.parse(raw); } catch (e) { j = raw; }
+        out = String(pick(j, 0) || '').trim(); if (!out) throw new Error('provider 502 omega empty');
+        if (candidate !== m) step(`Omega fallback → ${candidate}`);
+        break;
+      } catch (e) { if (ac.signal.aborted) throw e; lastErr = e; }
+    }
+    if (!out) throw (lastErr || new Error('provider 404 unknown omega model'));
     for (let i = 0; i < out.length; i += 60) emit(out.slice(i, i + 60));
     tin = Math.ceil(lastRaw.length / 4); tout = Math.ceil(out.length / 4);
   }

@@ -632,3 +632,25 @@ body{background:radial-gradient(120% 60% at 50% -10%,rgba(45,255,160,.07),transp
 .engs div{display:flex;flex-wrap:wrap;gap:8px}
 .eng{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#b7bfcd;border-radius:99px;padding:8px 14px;font-size:13px}
 .eng.on{border-color:rgba(45,255,160,.6);background:rgba(45,255,160,.1);color:#2dffa0}
+
+/* ===== v6: calm dynamic chat finish ===== */
+.msgs{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
+.m.assistant .c{padding:12px 14px;border:1px solid rgba(255,255,255,.07);border-radius:16px;background:rgba(14,16,21,.62);box-shadow:0 12px 32px -28px #000}
+.m.user .c{box-shadow:0 10px 24px -20px #000}
+.m.assistant .ai{box-shadow:0 0 0 4px rgba(45,255,160,.07),0 8px 20px -12px rgba(45,255,160,.7)}
+.sug button{position:relative;overflow:hidden}
+.sug button:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.07),transparent 65%);transform:translateX(-120%);transition:transform .5s ease}
+.sug button:hover:after{transform:translateX(120%)}
+.comp{will-change:border-color,box-shadow}
+.comp:focus-within{transform:translateY(-1px);transition:transform .18s ease,border-color .18s,box-shadow .18s}
+.comp textarea{min-height:42px}
+.dots{min-width:54px;justify-content:center}
+@media(max-width:560px){
+  .msgs{padding-left:10px;padding-right:10px}
+  .m{gap:8px}
+  .m.assistant .c{padding:10px 11px;border-radius:14px}
+  .m.user .c{max-width:91%;padding:9px 12px}
+  .hello{padding-top:5vh}
+  .dock{padding-left:8px;padding-right:8px}
+}
+@media(prefers-reduced-motion:reduce){.comp:focus-within{transform:none}.sug button:after{display:none}}

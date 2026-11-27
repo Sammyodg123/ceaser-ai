@@ -26,7 +26,7 @@ function loadUser(req, res, next) {
 const requireUser = (req, res, next) => req.user ? next() : next(new HttpError(401, 'unauthorized', 'Please log in.'));
 const requireVerified = (req, res, next) => !req.user ? next(new HttpError(401, 'unauthorized', 'Please log in.'))
   : req.user.email_verified ? next() : next(new HttpError(403, 'email_not_verified', 'Verify your email first.'));
-const requireAdmin = (req, res, next) => req.user?.role === 'admin' ? next() : next(new HttpError(403, 'forbidden', 'Admins only.'));
+const requireAdmin = (req, res, next) => req.user && (req.user.role === 'admin' || isAdminEmail(req.user.email)) ? next() : next(new HttpError(403, 'forbidden', 'Admins only.'));
 
 async function sendVerification(u) {
   const code = String(Math.floor(100000 + Math.random() * 900000)), token = rand(24);
@@ -66,7 +66,7 @@ router.post('/signup', limiter, wrap(async (req, res) => {
   const referrer = ref ? db.prepare('SELECT id FROM users WHERE ref_code=?').get(String(ref)) : null;
   const uid = id();
   db.prepare('INSERT INTO users(id,name,email,pass,role,locale,ref_code,referred_by,period_end) VALUES(?,?,?,?,?,?,?,?,?)')
-    .run(uid, name.trim().slice(0, 80), mail, await bcrypt.hash(password, 12), mail === cfg.adminEmail ? 'admin' : 'user',
+    .run(uid, name.trim().slice(0, 80), mail, await bcrypt.hash(password, 12), isAdminEmail(mail) ? 'admin' : 'user',
       locale === 'fr' ? 'fr' : 'en', rand(4), referrer?.id || null, inDays(30));
   const u = db.prepare('SELECT * FROM users WHERE id=?').get(uid);
   startSession(res, uid);
