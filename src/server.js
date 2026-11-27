@@ -37,7 +37,6 @@ app.get('/api/public/config', (req, res) => res.json({
   payments: { stripe: cfg.stripe, paypal: cfg.paypal },
   voice: { transcription: false },
   plans: PLANS,
-  models: require('./models').MODELS,
 }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/tokens', auth.requireUser, (req, res) => res.json({ balance: balanceOf(req.user) }));
@@ -53,7 +52,6 @@ app.use(['/api/projects', '/api/files', '/api/teams', '/api/v1'], auth.requireUs
 app.use('/api', (req, res, next) => next(new HttpError(404, 'not_found', 'Unknown endpoint.')));
 
 // Serve the website itself from the same server (same origin = cookies + CSRF just work)
-app.get('/chat', (req, res) => res.sendFile(path.join(cfg.frontend, 'chat.html')));
 app.use(express.static(cfg.frontend, { index: 'index.html', maxAge: '1h' }));
 app.get('*', (req, res) => fs.existsSync(path.join(cfg.frontend, 'index.html')) ? res.sendFile(path.join(cfg.frontend, 'index.html')) : res.status(404).send('Frontend not found. Check FRONTEND_DIR.'));
 
