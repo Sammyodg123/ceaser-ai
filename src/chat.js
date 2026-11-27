@@ -1,7 +1,8 @@
 const router = require('express').Router();
+const models = require('./models');
 const { cfg, db, HttpError, wrap, id, now, balanceOf, spend } = require('./core');
 
-const SYSTEM = `You are ${cfg.name}, a precise, friendly AI assistant for conversation, coding and building projects. Be concise and correct. Use Markdown and fenced code blocks.`;
+const SYSTEM = `You are ${cfg.name}, a precise, friendly AI assistant for conversation, coding and building projects. Be concise and correct. Use Markdown. Whenever you write a script, program, config or any code, put it in a fenced code block with the language name, and keep prose around it short.`;
 const msgDTO = (m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, model: m.model, attachments: [], feedback: m.feedback,
   usage: { inputTokens: m.tokens_in, outputTokens: m.tokens_out }, createdAt: m.created_at });
 const convDTO = (c) => ({ id: c.id, title: c.title, pinned: !!c.pinned, lastMessageAt: c.last_message_at || c.created_at, createdAt: c.created_at });
@@ -55,12 +56,6 @@ router.post('/messages/:id/feedback', (req, res) => {
 
 // ---- Manus agent provider (async tasks, polled and streamed to the browser) ----
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-function pickProvider() {
-  const want = (process.env.AI_PROVIDER || '').toLowerCase();
-  if (want === 'manus') return process.env.MANUS_API_KEY ? 'manus' : null;
-  if (want === 'anthropic') return process.env.ANTHROPIC_API_KEY ? 'anthropic' : null;
-  return process.env.ANTHROPIC_API_KEY ? 'anthropic' : process.env.MANUS_API_KEY ? 'manus' : null;
-}
 async function manusReply(conv, history, ac, send) {
   const base = (process.env.MANUS_API_URL || 'https://api.manus.ai').replace(/\/$/, '');
   const H = { 'content-type': 'application/json', 'x-manus-api-key': process.env.MANUS_API_KEY };
@@ -104,11 +99,12 @@ async function manusReply(conv, history, ac, send) {
 async function streamReply(req, res, conv) {
   const bal = balanceOf(req.user);
   if (bal.remaining <= 0) throw new HttpError(402, 'insufficient_tokens', 'You are out of tokens. Upgrade your plan.');
-  const prov = pickProvider();
-  if (!prov) throw new HttpError(503, 'ai_not_configured', 'AI provider key is not set on the server.');
+  const pick = models.find(req.body && req.body.model);
+  if (!pick) throw new HttpError(503, 'ai_not_configured', 'No AI provider key is set on the server. Add one to .env.');
+  const prov = pick.provider, P = models.PROVIDERS[prov];
   const history = db.prepare('SELECT role,content FROM messages WHERE conversation_id=? AND status IN (\'complete\',\'stopped\') AND content<>\'\' ORDER BY seq').all(conv.id)
     .map((m) => ({ role: m.role, content: m.content })).slice(-40);
-  const model = prov === 'manus' ? 'manus-' + (process.env.MANUS_PROFILE || 'standard') : (process.env.AI_MODEL || 'claude-sonnet-4-5');
+  const model = pick.id;
   const a = addMsg(conv.id, 'assistant', '', 'streaming');
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
   const send = (ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -116,9 +112,29 @@ async function streamReply(req, res, conv) {
   const ac = new AbortController(); res.on('close', () => ac.abort());
   let text = '', tin = 0, tout = 0, status = 'complete';
   try {
-    if (prov === 'manus') { const o = await manusReply(conv, history, ac, send); text = o.text; tin = o.tin; tout = o.tout; } else {
+    if (P.type === 'manus') { const o = await manusReply(conv, history, ac, send); text = o.text; tin = o.tin; tout = o.tout; }
+    else if (P.type === 'openai') {
+      const base = P.base().replace(/\/$/, ''); if (!base) throw new Error('missing base url for ' + prov);
+      const r = await fetch(base + '/chat/completions', { method: 'POST', signal: ac.signal,
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env[P.key] },
+        body: JSON.stringify({ model, stream: true, stream_options: { include_usage: true }, messages: [{ role: 'system', content: SYSTEM }, ...history] }) });
+      if (!r.ok) throw Object.assign(new Error(`provider ${r.status} ${(await r.text()).slice(0, 200)}`), { provider: true });
+      const dec = new TextDecoder(); let buf = '';
+      for await (const chunk of r.body) {
+        buf += dec.decode(chunk, { stream: true });
+        let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+          const block = buf.slice(0, i); buf = buf.slice(i + 2);
+          const line = block.split('\n').find((l) => l.startsWith('data: ')); if (!line || line.includes('[DONE]')) continue;
+          let d; try { d = JSON.parse(line.slice(6)); } catch (e) { continue; }
+          const t = d.choices && d.choices[0] && d.choices[0].delta && d.choices[0].delta.content;
+          if (t) { text += t; send('delta', { text: t }); }
+          if (d.usage) { tin = d.usage.prompt_tokens || tin; tout = d.usage.completion_tokens || tout; }
+        }
+      }
+      if (!tout) { tin = tin || Math.ceil(history.reduce((n, m) => n + m.content.length, 0) / 4); tout = Math.ceil(text.length / 4); }
+    } else {
     const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal: ac.signal,
-      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      headers: { 'content-type': 'application/json', 'x-api-key': process.env[P.key], 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model, max_tokens: 4096, stream: true, system: SYSTEM, messages: history }) });
     if (!r.ok) throw Object.assign(new Error(`provider ${r.status}`), { provider: true });
     const dec = new TextDecoder(); let buf = '';
@@ -147,7 +163,7 @@ async function streamReply(req, res, conv) {
 router.post('/conversations/:id/messages', wrap(async (req, res) => {
   const conv = own(req, req.params.id), content = String(req.body.content || '').trim();
   if (!content) throw new HttpError(400, 'invalid_input', 'Message is empty.');
-  if (content.length > 20000) throw new HttpError(400, 'too_long', 'Message too long.');
+  if (content.length > 40000) throw new HttpError(400, 'too_long', 'Message too long.');
   if (balanceOf(req.user).remaining <= 0) throw new HttpError(402, 'insufficient_tokens', 'You are out of tokens. Upgrade your plan.');
   addMsg(conv.id, 'user', content);
   if (conv.title === 'New conversation') db.prepare('UPDATE conversations SET title=? WHERE id=?').run(content.slice(0, 60), conv.id);
