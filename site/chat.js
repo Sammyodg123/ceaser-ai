@@ -133,7 +133,7 @@
       '<button class="nv newc' + (S.page === 'chat' && !S.cur ? ' on' : '') + '" data-p="chat">' + IC.chat + 'New chat</button>' +
       '<label class="srch">' + IC.search + '<input id="sq" placeholder="Search chats" autocomplete="off" value="' + esc(q) + '"><kbd>⌘K</kbd></label>' +
       '<div class="sect">RECENT</div><div class="hist" id="hist"></div>' +
-      '<div class="navs">' + NAV.map(function (n) { return '<button class="nv' + (S.page === n[0] ? ' on' : '') + '" data-p="' + n[0] + '">' + IC[n[1]] + n[2] + '</button>'; }).join('') +
+      '<div class="navs">' + NAV.concat(S.user && S.user.role === 'admin' ? [['admin', 'set', 'Admin']] : []).map(function (n) { return '<button class="nv' + (S.page === n[0] ? ' on' : '') + '" data-p="' + n[0] + '">' + IC[n[1]] + n[2] + '</button>'; }).join('') +
       '<a class="home" href="/">' + IC.back + 'Back to home</a></div>' +
       '<div class="tk" id="tk"></div>' +
       '<div class="me"><div class="av">' + esc((u.name || '?').charAt(0).toUpperCase()) + '</div><div class="n">' + esc(u.name) + '<small>' + esc(u.email) + '</small></div><button class="out" id="lo" aria-label="Sign out" title="Sign out">' + IC.out + '</button></div>';
@@ -168,9 +168,9 @@
   function go(p, keep) {
     if (p === 'chat' && !keep) { S.cur = null; S.msgs = []; }
     S.page = p; if (location.hash !== '#' + p) history.replaceState(null, '', '#' + p);
-    var main = $('#main'), t = { chat: 'CEASER AI', templates: 'AI Templates', dashboard: 'Dashboard', plan: 'Plan & usage', referrals: 'Referrals', team: 'Team', settings: 'Settings' };
+    var main = $('#main'), t = { chat: 'CEASER AI', templates: 'AI Templates', dashboard: 'Dashboard', plan: 'Plan & usage', referrals: 'Referrals', team: 'Team', settings: 'Settings', admin: 'Admin' };
     var tt = $('#ttl'); if (p === 'chat') tt.innerHTML = '<i class="mk">C</i><span class="wm">CEASER <b>AI</b></span>'; else tt.textContent = t[p] || 'CEASER AI';
-    ({ chat: renderChat, templates: renderTemplates, dashboard: renderDash, plan: function (m) { renderSettings(m, 'billing'); }, referrals: renderRef, team: renderTeam, settings: renderSettings })[p](main);
+    ({ chat: renderChat, templates: renderTemplates, dashboard: renderDash, plan: function (m) { renderSettings(m, 'billing'); }, referrals: renderRef, team: renderTeam, settings: renderSettings, admin: renderAdmin })[p](main);
     main.firstElementChild && main.firstElementChild.classList.add('fadein');
     buildDrawer(); if (innerWidth < 960) navOpen(false);
   }
@@ -235,7 +235,7 @@
       SUG.forEach(function (s) { var b = el('<button><i>' + esc(s[0]) + '</i><span>' + esc(s[1]) + '</span></button>'); b.onclick = function () { send(s[1]); }; h.querySelector('.sug').appendChild(b); });
       inner.appendChild(h); return;
     }
-    S.msgs.forEach(function (m) { inner.appendChild(msgNode(m)); }); mountPreviews(inner); var ms = $('#msgs'); ms.style.scrollBehavior = 'auto'; ms.scrollTop = ms.scrollHeight; ms.style.scrollBehavior = '';
+    S.msgs.forEach(function (m) { inner.appendChild(msgNode(m)); }); mountPreviews(inner); var ms = $('#msgs'); ms.style.scrollBehavior = 'auto'; ms.scrollTop = ms.scrollHeight; ms.style.scrollBehavior = ''; addRegen();
   }
   function msgNode(m) {
     var n = el('<div class="m ' + m.role + '"><div class="c"></div></div>'), c = n.querySelector('.c');
@@ -301,7 +301,8 @@
   }
   function modelSheet() {
     var s = $('#sheet'), ms = S.models.length ? S.models : [{ id: '', label: 'No model yet', desc: 'Add an API key to your .env file' }];
-    s.innerHTML = '<div class="box"><h3>Choose model</h3>' + ms.map(function (m) { return '<button class="opt' + (m.id === S.model || (!S.model && m === ms[0]) ? ' on' : '') + '" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(m.desc || '') + '</small></div><span class="ck">' + ((m.id === S.model || (!S.model && m === ms[0])) ? IC.ok : '') + '</span></button>'; }).join('') + '</div>';
+    var lastG = null;
+    s.innerHTML = '<div class="box"><h3>Choose model</h3>' + ms.map(function (m) { var gh = ''; if (m.group && m.group !== lastG) { lastG = m.group; gh = '<div class="grp">' + esc(m.group) + '</div>'; } return gh + '<button class="opt' + (m.id === S.model || (!S.model && m === ms[0]) ? ' on' : '') + '" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(m.desc || '') + '</small></div><span class="ck">' + ((m.id === S.model || (!S.model && m === ms[0])) ? IC.ok : '') + '</span></button>'; }).join('') + '</div>';
     s.hidden = false;
     s.onclick = function (e) { var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); } if (b || e.target === s) s.hidden = true; };
   }
@@ -331,33 +332,33 @@
   /* new message goes to the TOP of the screen (like ChatGPT/Venice) so the keyboard never covers the answer */
   function pinScroll() {
     var ms = $('#msgs'); if (!S.pin || !ms || !S.pin.isConnected) return;
-    ms.scrollTop += S.pin.getBoundingClientRect().top - ms.getBoundingClientRect().top - 6;
+    ms.scrollTop += S.pin.getBoundingClientRect().top - ms.getBoundingClientRect().top - 70;
   }
   if (window.visualViewport) visualViewport.addEventListener('resize', function () { if (S.pin) { pinScroll(); setTimeout(pinScroll, 120); } });
   document.addEventListener('scroll', function (e) { var t = e.target, h = document.querySelector('.top'); if (h && t && t.classList && (t.classList.contains('msgs') || t.classList.contains('page'))) h.classList.toggle('sc', t.scrollTop > 6); }, true);
-  async function send(preset) {
-    var ta = $('#ta'), text = (preset || (ta && ta.value) || '').trim(); if ((!text && !S.files.length && !S.imgs.length) || S.busy) return;
+  async function send(preset, regen) {
+    var ta = $('#ta'), text = (preset || (ta && ta.value) || '').trim(); if (S.busy || (!regen && !text && !S.files.length && !S.imgs.length)) return;
     // "/image a cat wearing sunglasses" (or Image mode) generates a picture instead of chatting
-    var im = /^\/(image|img)\s+([\s\S]+)/i.exec(text);
+    var im = !regen && /^\/(image|img)\s+([\s\S]+)/i.exec(text);
     if (im) return sendImageGen(im[2].trim());
-    if (S.imode && text && !S.files.length && !S.imgs.length) return sendImageGen(text);
+    if (!regen && S.imode && text && !S.files.length && !S.imgs.length) return sendImageGen(text);
     if (!text) text = S.imgs.length && !S.files.length ? 'What is in this image?' : 'Please review the attached file.';
     var full = text + S.files.map(function (f) { return '\n\n<<<FILE ' + f.name.replace(/[<>\n]/g, '') + '>>>\n' + f.text + '\n<<<END>>>'; }).join('');
     var atts = S.imgs.slice();
-    S.busy = true; if (rec) rec.stop(); if (ta) { ta.value = ''; ta.style.height = 'auto'; } S.files = []; S.imgs = []; drawFiles(); syncSend();
+    S.busy = true; if (rec) rec.stop(); if (ta && !regen) { ta.value = ''; ta.style.height = 'auto'; } if (!regen) { S.files = []; S.imgs = []; drawFiles(); } syncSend();
     var um = { role: 'user', content: full, _imgs: atts }, am = { role: 'assistant', content: '' };
     S.ac = new AbortController();
     var tw = null, th = null, thb = null, thin = null, steps = 0, lastP = null, t0 = Date.now(), aborted = false, node = null;
     var low = function () { if (thb) thb.scrollTop = thb.scrollHeight; };
     try {
       if (!S.cur) { var cv = (await api('POST', '/api/chat/conversations')).conversation; S.cur = cv.id; S.convs.unshift(cv); renderHist(); }
-      S.msgs.push(um, am); drawMsgs();
+      if (regen) { if (S.msgs.length && S.msgs[S.msgs.length - 1].role === 'assistant') S.msgs.pop(); S.msgs.push(am); } else S.msgs.push(um, am); drawMsgs();
       var cn = $('#inner').lastChild.querySelector('.c'), ms = $('#msgs');
       S.pin = $('#inner').children[$('#inner').children.length - 2]; ms.classList.add('pin'); pinScroll(); setTimeout(pinScroll, 60); setTimeout(pinScroll, 300);
       node = cn.querySelector('.body'); th = cn.querySelector('.think'); thb = cn.querySelector('.thbox'); thin = thb.querySelector('.thin');
       th.onclick = function () { var o = thb.classList.toggle('show'); th.classList.toggle('open', o); };
       tw = typer(am, node, ms, th);
-      await stream('/api/chat/conversations/' + S.cur + '/messages', { content: full, model: S.model || undefined, attachments: atts },
+      await stream('/api/chat/conversations/' + S.cur + (regen ? '/regenerate' : '/messages'), regen ? { model: S.model || undefined } : { content: full, model: S.model || undefined, attachments: atts },
         function (d) { tw.push(d); },
         function (t) { if (!lastP) { lastP = document.createElement('p'); thin.appendChild(lastP); } lastP.textContent += t; low(); },
         function (t) { steps++; lastP = null; var d = el('<div class="stp"><i></i><span></span></div>'); d.lastChild.textContent = t; thin.appendChild(d); th.querySelector('.tx').textContent = t; low(); },
@@ -369,7 +370,7 @@
     if (node && am.content) { node.innerHTML = md(am.content); mountPreviews(node); }
     if (th) { if (am.content) finishThink(th, thb, steps, t0, aborted ? 'Stopped after ' : 'Worked for '); else if (S.page === 'chat') { S.msgs = S.msgs.filter(function (m) { return m !== am; }); if (aborted) S.msgs = S.msgs.filter(function (m) { return m !== um; }); drawMsgs(); } }
     else if (!aborted) { S.msgs = S.msgs.filter(function (m) { return m !== am && m !== um; }); if (S.page === 'chat') drawMsgs(); }
-    S.pin = null; S.ac = null; S.busy = false; syncSend(); loadConvs(); loadBal();
+    S.pin = null; S.ac = null; S.busy = false; syncSend(); loadConvs(); loadBal(); addRegen();
   }
   /* animated image generation: a shimmering placeholder swaps for the finished picture (saved in the chat, survives reloads) */
   async function sendImageGen(prompt) {
@@ -465,6 +466,33 @@
     w.querySelectorAll('[data-u]').forEach(function (b) { b.onclick = function () { open(b.dataset.u, '_blank'); }; });
     $('#rsh').onclick = function () { if (navigator.share) navigator.share({ title: 'CEASER AI', text: 'Join me on CEASER AI!', url: link }).catch(function () {}); else { navigator.clipboard && navigator.clipboard.writeText(link); toast('Link copied'); } };
   }
+  /* round "regenerate" button under the last answer */
+  function addRegen() {
+    var inner = $('#inner'); if (!inner) return; inner.querySelectorAll('.acts').forEach(function (x) { x.remove(); });
+    var l = S.msgs[S.msgs.length - 1]; if (S.busy || !l || l.role !== 'assistant' || !l.content || l._gen || !S.cur) return;
+    var n = inner.lastElementChild; if (!n || !n.classList.contains('assistant')) return;
+    var a = el('<div class="acts"><button class="regen" aria-label="Regenerate" title="Regenerate"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button></div>');
+    a.firstChild.onclick = function () { send('', true); }; n.querySelector('.c').appendChild(a);
+  }
+  /* ---------- admin: edit API keys from inside the app, test engines, restart ---------- */
+  async function renderAdmin(main) {
+    var w = page(main, '<h1>Admin</h1><p class="sb">Edit API keys and routing here. Changes apply instantly. Leave a field empty and save to remove it.</p><div id="adm"><p style="color:var(--mu)">Loading…</p></div>');
+    var data; try { data = await api('GET', '/api/admin/settings'); } catch (e) { $('#adm', w).innerHTML = '<p>' + esc(e.message) + '</p>'; return; }
+    var orig = {};
+    $('#adm', w).innerHTML = data.groups.map(function (g) { return '<div class="card"><h3>' + esc(g.title) + '</h3>' + g.fields.map(function (f) { orig[f.k] = f.value; return '<label class="afl"><span>' + esc(f.k) + (f.set ? ' <i class="aon">set</i>' : '') + '</span><input data-k="' + esc(f.k) + '" value="' + esc(f.value) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></label>'; }).join('') + '</div>'; }).join('') +
+      '<div class="card"><button class="btn" id="asv" style="width:100%">Save changes</button><div style="display:flex;gap:8px;margin-top:10px"><button class="btn g" id="ats" style="flex:1">Test engines</button><button class="btn g" id="ars" style="flex:1">Restart server</button></div><div id="ares" class="ares"></div></div>';
+    $('#asv', w).onclick = async function () {
+      var vals = {}; w.querySelectorAll('input[data-k]').forEach(function (i) { if (i.value !== orig[i.dataset.k]) vals[i.dataset.k] = i.value; });
+      if (!Object.keys(vals).length) return toast('Nothing changed');
+      try { await api('POST', '/api/admin/settings', { values: vals }); toast('Saved ✓'); try { var c = await api('GET', '/api/public/config'); S.models = c.models || []; } catch (e) {} renderAdmin(main); } catch (e) { toast(e.message); }
+    };
+    $('#ats', w).onclick = async function () {
+      var b = this, r = $('#ares', w); b.disabled = true; b.textContent = 'Testing…'; r.innerHTML = '';
+      try { var o = await api('POST', '/api/admin/test'); r.innerHTML = o.results.map(function (x) { return '<div class="ar ' + (x.ok ? 'ok' : 'bad') + '"><b>' + esc(x.label) + '</b> · ' + (x.ok ? 'working' : 'failed ' + x.status) + ' · ' + x.ms + 'ms<small>' + esc((x.model ? x.model + ' · ' : '') + (x.note || '')) + '</small></div>'; }).join('') || '<small>No engines with a key.</small>'; } catch (e) { r.textContent = e.message; }
+      b.disabled = false; b.textContent = 'Test engines';
+    };
+    $('#ars', w).onclick = async function () { if (!confirm('Restart the server now? It is back in about 30 seconds.')) return; try { await api('POST', '/api/admin/restart'); toast('Restarting… reload in 30s'); } catch (e) { toast(e.message); } };
+  }
   function renderTeam(main) {
     var u = S.user, w = page(main, '<a class="btn g back" href="/" style="text-decoration:none">' + IC.back + 'Home</a><h1>Team</h1><p class="sb">Shared workspaces are in development.</p>' +
       '<div class="card"><h3>Team workspaces</h3><p style="margin:0 0 14px;color:var(--mu)">Invite members, share conversations and manage roles in one place.</p><button class="btn" id="tn">Notify me when it’s ready</button></div>' +
@@ -505,7 +533,7 @@
       if (!free) return;
       try { var cfg = await api('GET', '/api/public/config'); (cfg.plans || []).filter(function (p) { return p.priceUsd > 0; }).forEach(function (p) {
         var c = el('<div class="pc"><b>' + esc(p.name) + '</b> <small>$' + p.priceUsd + '/mo</small><ul><li>' + Number(p.monthlyTokens || p.tokens).toLocaleString() + ' tokens / month</li><li>Streaming chat</li>' + (p.voiceInput ? '<li>Voice input</li>' : '') + '</ul><button class="btn" style="width:100%">Get ' + esc(p.name) + '</button></div>');
-        c.querySelector('button').onclick = async function () { try { var r = await api('POST', '/api/billing/checkout', { plan: p.id, provider: 'stripe' }); if (r.url) location.href = r.url; } catch (e) { toast(e.message || 'Billing not configured yet.'); } }; $('#pg').appendChild(c); }); } catch (e) {}
+        c.querySelector('button').onclick = async function () { try { var r = await api('POST', '/api/billing/checkout', { plan: p.id, provider: 'flutterwave' }); if (r.url) location.href = r.url; } catch (e) { toast(e.message || 'Billing not configured yet.'); } }; $('#pg').appendChild(c); }); } catch (e) {}
     })();
     $('#del').onclick = function () { if (!confirm('Permanently delete your account and all data?') || !confirm('Last chance — delete everything?')) return; api('DELETE', '/api/auth/me').then(function () { location.replace('/'); }).catch(function (e) { toast(e.message); }); };
   }
@@ -560,7 +588,7 @@
     if (S.model && S.models.length && !S.models.some(function (m) { return m.id === S.model; })) S.model = '';
     if (innerWidth >= 960) navOpen(true);
     loadBal(); stage(86, 'Loading your chats…'); await loadConvs();
-    var h = location.hash.slice(1); go(['chat', 'templates', 'dashboard', 'plan', 'referrals', 'team', 'settings'].indexOf(h) > -1 ? h : 'chat', true);
+    var h = location.hash.slice(1); go(['chat', 'templates', 'dashboard', 'plan', 'referrals', 'team', 'settings', 'admin'].indexOf(h) > -1 ? h : 'chat', true);
     ping(); stage(100, 'Ready'); var b = $('#boot'), wait = Math.max(250, 900 - (performance.now() || 0)); setTimeout(function () { b.classList.add('x'); setTimeout(function () { b.remove(); }, 420); }, wait);
   })();
 })();

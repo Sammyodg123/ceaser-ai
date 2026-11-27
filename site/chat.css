@@ -571,3 +571,47 @@ body:before,body:after{display:none!important;animation:none!important}
 .tpc small{font-size:10.5px;line-height:1.3}
 .tsr{height:42px}.tsr input{font-size:13.5px}
 .tbox .th b{font-size:14px}.tbox .th small{font-size:11.5px}
+
+/* --- v10b: clean, smaller chat theme + fully transparent header --- */
+html,body{background:#07080b}
+body{background:radial-gradient(120% 60% at 50% -10%,rgba(45,255,160,.07),transparent 60%),radial-gradient(90% 50% at 100% 0%,rgba(25,195,255,.05),transparent 55%),#07080b!important}
+.shell,.col,main{background:transparent!important}
+.top,.top.sc,.top *:not(.live):not(.mk):not(.hdrDot){background-color:transparent}
+.top{background:transparent!important;border:0!important;box-shadow:none!important}
+.top.sc{background:linear-gradient(rgba(7,8,11,.7),rgba(7,8,11,0))!important}
+.trayBody{background:rgba(16,20,27,.72)!important}
+.m .c,.m.assistant .c{font-size:14px!important;line-height:1.6!important;color:#d9dde6}
+.m.user .c{font-size:13.5px!important;padding:8px 13px!important;border-radius:16px 16px 5px 16px!important;background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.06)!important}
+.m.assistant .c h1{font-size:17px}.m.assistant .c h2{font-size:15.5px}.m.assistant .c h3{font-size:14.5px}
+.m.assistant .c p{margin:.5em 0}
+.m.assistant .c code{font-size:12.5px}.cb pre,.cb code{font-size:12px!important;line-height:1.55}
+.cb:before{height:1px!important;opacity:.35!important;background:linear-gradient(90deg,transparent,#2dffa0,#19c3ff,transparent)!important}
+.cb{background:rgba(8,10,14,.6)!important;border-color:rgba(255,255,255,.07)!important;box-shadow:none!important}
+.cb .h{background:transparent!important}
+.comp,.dock{background:transparent!important}
+.comp textarea{font-size:14.5px!important}
+.think .tx{font-size:12.5px}.stp,.thin p{font-size:12px}
+.hello h1{font-size:21px}.sug button{font-size:13px;padding:12px 14px}
+
+/* --- v10c: true transparent overlay header, round regenerate, grouped models, admin, softer templates --- */
+.col{position:relative}
+.top{position:absolute!important;top:0;left:0;right:0;z-index:20;pointer-events:none;background:linear-gradient(rgba(7,8,11,.55),rgba(7,8,11,0))!important;transition:background .25s}
+.top>*,.top .tray *{pointer-events:auto}
+.top.sc{background:linear-gradient(rgba(7,8,11,.85),rgba(7,8,11,.35) 70%,rgba(7,8,11,0))!important}
+.msgs,.page{padding-top:calc(var(--st,0px) + 62px)!important}
+.ttl .mk{background:rgba(45,255,160,.1)!important;color:#2dffa0!important;border:1px solid rgba(45,255,160,.55);box-shadow:0 0 14px -4px rgba(45,255,160,.6)}
+.ib{background:transparent}
+.acts{display:flex;margin-top:10px}
+.regen{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#9aa3b2;display:grid;place-items:center;padding:0}
+.regen svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .4s}
+.regen:active{background:rgba(45,255,160,.12);color:#2dffa0}.regen:active svg{transform:rotate(-200deg)}
+.grp{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6d7585;padding:12px 4px 4px}
+.afl{display:block;margin:0 0 10px}.afl span{display:block;font-size:11.5px;color:var(--mu);margin-bottom:4px;font-family:ui-monospace,monospace}
+.afl input{width:100%;font-size:13px!important;min-height:40px!important;padding:8px 11px!important}
+.aon{font-style:normal;font-size:10px;color:#04120c;background:#2dffa0;border-radius:99px;padding:1px 7px;margin-left:6px}
+.ares{margin-top:12px}.ar{padding:9px 11px;border-radius:12px;margin-top:6px;font-size:13px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.ar.ok{border-color:rgba(45,255,160,.4)}.ar.bad{border-color:rgba(255,107,129,.45)}.ar small{display:block;color:var(--mu);margin-top:3px;word-break:break-word;font-size:11.5px}
+.tpc{background:linear-gradient(160deg,#151a23,#10141b)!important;border-color:rgba(255,255,255,.09)!important}
+.tpc:hover{border-color:rgba(45,255,160,.35)!important}
+.tpc .te{background:linear-gradient(135deg,rgba(45,255,160,.16),rgba(25,195,255,.12))!important}
+.tsr{background:#12161d!important}

@@ -3,6 +3,7 @@ const models = require('./models');
 const { cfg, db, HttpError, wrap, id, now, balanceOf, spend } = require('./core');
 
 const SYSTEM = `Your name is ${cfg.name}, created by ${cfg.creator}. If asked who you are or what your name is, say you are ${cfg.name}; never say you are ChatGPT, Gemini, Llama or any other model. You are a precise, friendly AI assistant for conversation, coding and building projects. Be concise and correct. Use Markdown. Whenever you write a script, program, config or any code, put it in a fenced code block with the language name, and keep prose around it short.`;
+const CODE_RULE = `\n\nCODE QUALITY: you are a senior engineer. Return COMPLETE, working, runnable code: no placeholders, no "rest of code here", no truncation. Think about edge cases first, then write clean idiomatic code with correct imports. Put each file in its own fenced block labelled with its filename. Keep explanations to a few lines.`;
 const BUILD_RULE = `\n\nWhen asked for a website, landing page, app UI or game: reply with ONE complete, self-contained file in a single fenced block labelled like \`\`\`html:index.html (inline CSS and JS, no build step, mobile-first and responsive, modern clean design, system fonts or Google Fonts only, no placeholder images that need a network except via CSS gradients/SVG). Keep animations light so the page stays smooth on phones. Do not use localStorage. Write at most two short sentences before the code and two after.`;
 const msgDTO = (m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, model: m.model, attachments: [], feedback: m.feedback,
   usage: { inputTokens: m.tokens_in, outputTokens: m.tokens_out }, createdAt: m.created_at });
@@ -178,15 +179,32 @@ async function streamReply(req, res, conv) {
   send('start', { messageId: a.id, kind: pl.kind });
   const ac = new AbortController(); res.on('close', () => ac.abort());
   let text = '', tin = 0, tout = 0, status = 'complete', usedModel = '', usedCost = 1;
-  const SYS = SYSTEM + (pl.kind === 'build' ? BUILD_RULE : '');
+  const SYS = SYSTEM + (pl.kind === 'build' ? BUILD_RULE : '') + (pl.kind !== 'chat' ? CODE_RULE : '');
   const emit = (t) => { if (!text) step(pl.kind === 'build' ? 'Writing code' : pl.kind === 'code' ? 'Writing the answer' : 'Writing the answer'); text += t; send('delta', { text: t }); };
 
   async function viaOpenAI(P, prov, model) {
     const base = P.base().replace(/\/$/, ''); if (!base) throw new Error('missing base url for ' + prov);
-    const msgs = history.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) }));
-    const r = await fetch(base + '/chat/completions', { method: 'POST', signal: ac.signal,
+    let msgs = history.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) }));
+    if (P.free) { // the free public API rejects prompts over ~16k characters: keep the newest messages that fit
+      const len = (m) => (typeof m.content === 'string' ? m.content.length : 600); let budget = 14500 - SYS.length; const keep = [];
+      for (let i = msgs.length - 1; i >= 0 && budget > 0; i--) { let m = msgs[i]; if (typeof m.content === 'string' && m.content.length > budget) m = { role: m.role, content: m.content.slice(-Math.max(1500, budget)) }; budget -= len(m); keep.unshift(m); }
+      msgs = keep;
+    }
+    const go = (mdl) => { // first-byte timeout: a hanging provider must not stall the whole reply
+      const c2 = new AbortController(), fwd = () => c2.abort(), tm = setTimeout(() => { c2.abort(); }, 25000);
+      ac.signal.addEventListener('abort', fwd, { once: true });
+      return fetch(base + '/chat/completions', { method: 'POST', signal: c2.signal,
       headers: Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + models.keyOf(P) }, P.noauth || !P.hdr ? {} : P.hdr(models.keyOf(P))),
-      body: JSON.stringify({ model, stream: true, ...(P.free ? {} : { stream_options: { include_usage: true } }), messages: [{ role: 'system', content: SYS }, ...msgs] }) });
+      body: JSON.stringify({ model: mdl, stream: true, ...(P.free ? {} : { stream_options: { include_usage: true } }), messages: [{ role: 'system', content: SYS }, ...msgs] }) }).then((x) => { clearTimeout(tm); return x; }, (e) => { clearTimeout(tm); if (!ac.signal.aborted) e.timeout = true; throw e; });
+    };
+    model = models.modelFor(prov, model);
+    if (P.free && pl.kind !== 'chat') model = process.env.FREE_CODE_MODEL || 'qwen-coder'; // free coding model, falls back to the default below
+    let r = await go(model);
+    if (!r.ok && P.free && model !== (process.env.FREE_MODEL || 'openai')) { model = process.env.FREE_MODEL || 'openai'; usedModel = model; r = await go(model); }
+    if (!r.ok && [400, 404, 410].includes(r.status) && !P.free) { // model retired? ask the provider what it has now and retry once
+      const nm = await models.discover(prov).catch(() => null);
+      if (nm && nm !== model) { console.log(`[models] ${prov}: ${model} -> ${nm}`); usedModel = nm; r = await go(nm); }
+    }
     if (!r.ok) throw new Error(`provider ${r.status} ${(await r.text()).slice(0, 200)}`);
     const dec = new TextDecoder(); let buf = '';
     for await (const chunk of r.body) {
@@ -244,8 +262,11 @@ async function streamReply(req, res, conv) {
         if (ac.signal.aborted) throw e;
         console.error(`AI error (${c.provider}):`, e.message);
         if (text || i === pl.chain.length - 1) throw e; // already wrote something (or nothing left to try)
-        const code = (/(?:provider|manus) (\d{3})/.exec(e.message) || [])[1];
+        const code = (/(?:provider|manus) (\d{3})/.exec(e.message) || [])[1] || (e.timeout ? 'timeout' : '');
         lastWhy = `${c.label}${code ? ' ' + code : ''}`;
+        if (code === '401' || code === '403') models.cool(c.provider, 10 * 60 * 1000); // bad key / blocked account
+        else if (code === '404' || code === '410') models.cool(c.provider, 5 * 60 * 1000); // retired model
+        else if (code === '429' || code === 'timeout' || code === '413') models.cool(c.provider, 2 * 60 * 1000);
         send('thinking', { text: `${c.label} was unavailable${code ? ' (' + code + ')' : ''}, trying another engine…\n` });
       }
     }
@@ -275,6 +296,13 @@ router.get('/diagnose', wrap(async (req, res) => {
     } catch (e) { out.push({ provider: p, url: base, status: 0, error: String(e.message).slice(0, 160) }); }
   }
   res.json({ results: out });
+}));
+router.post('/conversations/:id/regenerate', wrap(async (req, res) => {
+  const conv = own(req, req.params.id);
+  const last = db.prepare('SELECT * FROM messages WHERE conversation_id=? ORDER BY seq DESC LIMIT 1').get(conv.id);
+  if (last && last.role === 'assistant') db.prepare('DELETE FROM messages WHERE id=?').run(last.id);
+  if (!db.prepare("SELECT 1 FROM messages WHERE conversation_id=? AND role='user' LIMIT 1").get(conv.id)) throw new HttpError(400, 'invalid_input', 'Nothing to regenerate.');
+  await streamReply(req, res, conv);
 }));
 router.post('/conversations/:id/messages', wrap(async (req, res) => {
   const conv = own(req, req.params.id);

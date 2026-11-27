@@ -37,6 +37,34 @@ Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.pref
 const clean = (v) => String(v == null ? '' : v).trim().replace(/^["']|["']$/g, '').trim();
 const keyOf = (P) => (P && P.key ? clean(process.env[P.key]) : '');
 const hasKey = (p) => { const P = PROVIDERS[p]; if (!P) return false; if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
+// ---- dynamic model discovery: providers retire models often (Groq/Gemini/NVIDIA all 404/410 on old names), so ask the provider what it has ----
+const found = {}, cooled = {};
+const BADM = /embed|whisper|tts|guard|moderat|rerank|image|audio|safety|orpheus|transcri|dall|clip|ocr|parse|retriev|vision-preview|imagen|veo|live|robotics|aqa|learnlm|gemma-?\d*n?-?it?$/i;
+const PREFS = {
+  groq: [/llama-3\.3-70b/, /llama-?4/, /gpt-oss-120b/, /llama-3\.1-8b/, /qwen/, /./],
+  gemini: [/^gemini-[\d.]+-flash$/, /^gemini-[\d.]+-flash-(?!lite)/, /flash/, /^gemini-[\d.]+-pro$/, /./],
+  nvidia: [/llama-3\.3-70b/, /llama-?4/, /llama-3\.1-70b/, /nemotron.*(70b|super)/, /llama-3\.1-8b/, /instruct/, /./],
+  venice: [/llama-3\.3-70b/, /llama/, /./],
+};
+const verKey = (x) => (x.match(/\d+(\.\d+)?/g) || ['0']).map(Number);
+const newer = (a, b) => { const A = verKey(a), B = verKey(b); for (let i = 0; i < Math.max(A.length, B.length); i++) { if ((B[i] || 0) !== (A[i] || 0)) return (B[i] || 0) - (A[i] || 0); } return a.length - b.length; };
+async function discover(p) {
+  const P = PROVIDERS[p]; if (!P || P.type !== 'openai' || !P.base) return null;
+  const base = (P.base() || '').replace(/\/$/, ''); if (!base) return null;
+  const k = keyOf(P);
+  const r = await fetch(base + '/models', { signal: AbortSignal.timeout(12000), headers: Object.assign(P.noauth ? {} : { authorization: 'Bearer ' + k }, P.hdr && k ? P.hdr(k) : {}) });
+  if (!r.ok) return null;
+  const j = await r.json().catch(() => ({}));
+  const ids = (j.data || j.models || []).map((m) => String(m.id || m.name || '').replace(/^models\//, '')).filter((x) => x && !BADM.test(x));
+  if (!ids.length) return null;
+  for (const re of (PREFS[p] || [/./])) { const hit = ids.filter((x) => re.test(x)).sort(newer); if (hit.length) { found[p] = hit[0]; return hit[0]; } }
+  return null;
+}
+// the model to actually call: a model found by discovery wins over the built-in default (but never over one you set in .env)
+const modelFor = (p, wanted) => { const P = PROVIDERS[p]; return P && (process.env[P.prefix + '_MODEL'] || process.env[P.prefix + '_MODELS']) ? wanted : (found[p] || wanted); };
+const reset = () => { Object.keys(found).forEach((k) => delete found[k]); Object.keys(cooled).forEach((k) => delete cooled[k]); };
+const cool = (p, ms) => { cooled[p] = Date.now() + (ms || 10 * 60 * 1000); };
+const isCooled = (p) => cooled[p] > Date.now();
 const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
 
 // default model id(s) of a provider: <PREFIX>_MODELS="a,b,c"  or  <PREFIX>_MODEL=a  or built-in default
@@ -85,7 +113,7 @@ function intent(text) {
 const envList = (k, d) => String(process.env[k] || d || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
 let rr = 0;
 function chainFor(kind, vision) {
-  const ok = (p) => PROVIDERS[p] && hasKey(p) && (!vision || PROVIDERS[p].vision);
+  const ok = (p) => PROVIDERS[p] && hasKey(p) && !isCooled(p) && (!vision || PROVIDERS[p].vision);
   const keyed = Object.keys(PROVIDERS).filter((p) => ok(p) && !PROVIDERS[p].free && p !== 'custom');
   let pref;
   if (kind === 'build') pref = envList('WEBSITE_PROVIDERS', 'manus,anthropic');
@@ -121,10 +149,10 @@ const list = () => {
   const rest = all().filter((m) => hasKey(m.provider) && !(m.provider === ap && m.id === autoModel));
   return [auto].concat(rest);
 };
-const pub = () => list().map(({ id, label, desc, cost }) => ({ id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'free / normal cost'), cost }));
+const pub = () => list().map(({ id, label, desc, cost, provider }) => ({ id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'free / normal cost'), cost, group: id === 'auto' ? 'Smart' : (PROVIDERS[provider] ? PROVIDERS[provider].label : 'Other') }));
 function find(id) {
   const l = list(); if (!l.length) return null;
   const m = (id && l.find((x) => x.id === id)) || l[0];
   return m.id === 'auto' ? Object.assign({}, m, { id: m.model }) : m;
 }
-module.exports = { list, pub, find, plan, intent, PROVIDERS, keyOf, hasKey, idsOf };
+module.exports = { list, pub, find, plan, intent, PROVIDERS, keyOf, hasKey, idsOf, discover, modelFor, cool, reset };

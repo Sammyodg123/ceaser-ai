@@ -13,7 +13,7 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: { useDefaults: true, directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'upgrade-insecure-requests': cfg.prod ? [] : null } } }));
 app.use(cookieParser());
-app.post('/api/billing/webhook/stripe', express.raw({ type: 'application/json' }), billing.stripeWebhook); // must be BEFORE express.json
+app.post('/api/billing/webhook/flutterwave', express.json(), billing.flwWebhook); // Flutterwave tells us when money arrived (no CSRF cookie, checked by secret hash)
 app.use(express.json({ limit: '20mb' })); // raised so image/vision attachments (base64) fit
 app.use(auth.loadUser);
 
@@ -35,7 +35,7 @@ app.use('/api', (req, res, next) => {
 app.get('/api/public/config', (req, res) => res.json({
   app: { name: cfg.name, email: cfg.email, creator: cfg.creator, url: cfg.url },
   auth: { google: false },
-  payments: { stripe: cfg.stripe, paypal: cfg.paypal },
+  payments: { flutterwave: !!String(process.env.FLW_SECRET_KEY || '').trim() },
   voice: { transcription: false },
   plans: PLANS,
   models: models.pub(),
@@ -45,6 +45,7 @@ app.get('/api/tokens', auth.requireUser, (req, res) => res.json({ balance: balan
 app.use('/api/auth', auth.router);
 app.use('/api/chat', auth.requireVerified, chat);
 app.use('/api/billing', billing.router);
+app.use('/api/admin', auth.requireUser, require('./admin'));
 
 // Not built yet: projects, files, teams, API keys. Lists return empty so the UI does not crash.
 app.use(['/api/projects', '/api/files', '/api/teams', '/api/v1'], auth.requireUser, (req, res) => {
