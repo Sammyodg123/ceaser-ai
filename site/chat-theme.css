@@ -16,7 +16,6 @@ textarea,input{-webkit-user-select:text;user-select:text}
 .msgs,.page,.hist,.navs,.sheet .box{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .msgs::-webkit-scrollbar,.page::-webkit-scrollbar,.hist::-webkit-scrollbar,.navs::-webkit-scrollbar{display:none}
 .shell{position:fixed;inset:0;height:auto}
-.dock{padding-bottom:calc(var(--sb) + 8px);background:linear-gradient(to top,#05070e 62%,rgba(5,7,14,0))}
 
 /* ---------- ambient background: two soft light pools drifting slowly (GPU transform only) ---------- */
 html:before,html:after{content:"";position:fixed;z-index:0;pointer-events:none;width:120vmax;height:120vmax;border-radius:50%;will-change:transform;opacity:.9}
@@ -24,11 +23,9 @@ html:before{left:-70vmax;top:-80vmax;background:radial-gradient(closest-side,rgb
 html:after{right:-75vmax;bottom:-85vmax;background:radial-gradient(closest-side,rgba(139,123,255,.16),transparent 70%);animation:czdrift2 31s ease-in-out infinite alternate}
 @keyframes czdrift1{to{transform:translate3d(32vmax,22vmax,0) scale(1.15)}}
 @keyframes czdrift2{to{transform:translate3d(-28vmax,-24vmax,0) scale(1.1)}}
-.shell,#boot{z-index:1}
-.col,.top,.msgs,.dock{position:relative;z-index:1;background:transparent}
+.shell{z-index:1}
 
-/* ---------- header ---------- */
-.top{border-bottom:1px solid var(--line);background:linear-gradient(to bottom,rgba(8,11,20,.96),rgba(8,11,20,.72))}
+/* ---------- header: the original floating header (position/z-index/transparent bg from chat.css) is left untouched; only the logo colours change ---------- */
 .ttl .mk{background:var(--grad);box-shadow:0 6px 18px -6px rgba(74,168,255,.7)}
 .wm b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 
