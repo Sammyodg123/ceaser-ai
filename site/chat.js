@@ -35,6 +35,7 @@
     wa: '<svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9c0 3 3 6 6 6l1-1.5-2-1-1 .8c-1-.4-2-1.400-2.400-2.400l.8-1-1-2z"/></svg>',
     xx: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>',
     home2: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.500V21h5v-6h4v6h5V9.500"/></svg>',
+    dl: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
     tag: '<svg viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.2"/></svg>'
   };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -49,6 +50,7 @@
   }
   function toast(t) { var n = $('#toast'); n.textContent = t; n.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(function () { n.classList.remove('on'); }, 3500); }
   function inline(s) { return s.replace(/`([^`\n]+)`/g, '<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<i>$2</i>').replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'); }
+  var EXT = { javascript: 'js', js: 'js', node: 'js', typescript: 'ts', ts: 'ts', python: 'py', py: 'py', bash: 'sh', sh: 'sh', shell: 'sh', json: 'json', css: 'css', html: 'html', java: 'java', go: 'go', rust: 'rs', php: 'php', ruby: 'rb', sql: 'sql', yaml: 'yml', yml: 'yml', jsx: 'jsx', tsx: 'tsx', c: 'c', cpp: 'cpp', md: 'md', markdown: 'md', xml: 'xml' };
   var KW = /\b(function|const|let|var|return|if|else|for|while|do|switch|case|break|continue|new|class|extends|import|from|export|default|async|await|try|catch|finally|throw|typeof|in|of|this|true|false|null|undefined|def|self|None|True|False|elif|lambda|with|as|pass|raise|yield|print|public|private|static|void|int|string|bool|fn|let|mut|impl|struct|enum|use|pub|package|func|echo|then|fi|done|do|SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|TABLE|JOIN|ORDER|BY|GROUP|LIMIT|AND|OR|NOT|NULL)\b/g;
   function hl(code) {
     var re = /(\/\/[^\n]*|#[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|--[^\n]*)|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?)|(\b\d[\d_.]*\b)|([A-Za-z_$][\w$]*)(?=\()|([^\s\w"'`\/#-]+|[\s\S])/g, out = '', m;
@@ -67,10 +69,18 @@
     var parts = String(src).split(/```/), out = '';
     parts.forEach(function (p, i) {
       if (i % 2) {
-        var open = live && i === parts.length - 1, nl = p.indexOf('\n'), lang = nl > -1 ? p.slice(0, nl).trim() : (open ? p.trim() : ''), code = nl > -1 ? p.slice(nl + 1) : (open ? '' : p);
+        var open = live && i === parts.length - 1, nl = p.indexOf('\n'), info = nl > -1 ? p.slice(0, nl).trim() : (open ? p.trim() : ''), code = nl > -1 ? p.slice(nl + 1) : (open ? '' : p);
         code = code.replace(/\n$/, '');
-        var n = code ? code.split('\n').length : 0;
-        out += '<div class="cb' + (open ? ' wr' : '') + '"><div class="h"><span class="tl"><i></i><i></i><i></i></span><span class="lg">' + esc(lang || 'code') + '</span>' + (open ? '<span class="wt"><b></b>writing…</span>' : '<span class="ln">' + n + ' line' + (n === 1 ? '' : 's') + '</span>') + '<button data-copy>Copy</button></div><pre><code>' + hl(code) + (open ? '<span class="caret"></span>' : '') + '</code></pre></div>';
+        var lang = (info.split(/[\s:]/)[0] || '').toLowerCase(), fn = (info.slice(lang.length).replace(/^[\s:]+/, '').replace(/^(title|file|filename)=/, '').replace(/["']/g, '').split(/\s+/)[0] || '');
+        if (fn && !/\.[A-Za-z0-9]{1,8}$/.test(fn)) fn = '';
+        var html5 = lang === 'html' || lang === 'htm' || /^\s*<!doctype html|^\s*<html/i.test(code);
+        if (!fn) fn = html5 ? 'index.html' : (lang && EXT[lang]) ? 'file.' + EXT[lang] : '';
+        var n = code ? code.split('\n').length : 0, prev = html5 && !open && code.length > 40;
+        out += '<div class="cb' + (open ? ' wr' : '') + (prev ? ' hp' : '') + '" data-name="' + esc(fn || 'code.txt') + '"><div class="h"><span class="fi">' + esc((fn.split('.').pop() || lang || 'txt').slice(0, 4)) + '</span><span class="lg">' + esc(fn || lang || 'code') + '</span>' +
+          (open ? '<span class="wt"><b></b>writing…</span>' : (prev ? '<span class="tb"><button data-tab="pv" class="on">Preview</button><button data-tab="cd">Code</button></span>' : '<span class="ln">' + n + ' line' + (n === 1 ? '' : 's') + '</span>')) +
+          (open ? '' : '<button class="ic" data-dl aria-label="Download" title="Download">' + IC.dl + '</button>') + '<button data-copy>Copy</button></div>' +
+          (prev ? '<div class="pv"><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" loading="lazy" data-pv></iframe><button class="full" data-full>Full screen ⤢</button></div>' : '') +
+          '<pre' + (prev ? ' hidden' : '') + '><code>' + hl(code) + (open ? '<span class="caret"></span>' : '') + '</code></pre></div>';
         return;
       }
       var html = '', list = null, para = [];
@@ -168,8 +178,27 @@
     ta.onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey && innerWidth > 760) { e.preventDefault(); send(); } };
     $('#send').onclick = function () { send(); };
     $('#att').onclick = pickFile; $('#mchip').onclick = modelSheet; $('#mic').onclick = dictate;
-    $('#inner').onclick = function (e) { var b = e.target.closest('[data-copy]'); if (b) copy(b.closest('.cb').querySelector('code').textContent, b, 'Copy'); };
+    $('#inner').onclick = blockClick;
     drawMsgs(); drawFiles();
+  }
+  /* previews are served by the backend with a sandbox CSP (own opaque origin), so generated pages can run scripts safely */
+  function previewURL(code) { return api('POST', '/api/chat/preview', { html: code }).then(function (r) { return '/api/chat/preview/' + r.id; }); }
+  function mountPreviews(root) {
+    if (!root) return; root.querySelectorAll('iframe[data-pv]').forEach(function (f) {
+      if (f.dataset.mt) return; f.dataset.mt = 1; var code = f.closest('.cb').querySelector('code').textContent;
+      previewURL(code).then(function (u) { f.src = u; }).catch(function () { var cb = f.closest('.cb'); if (cb) { cb.querySelector('.pv').hidden = true; cb.querySelector('pre').hidden = false; } });
+    });
+  }
+  function blockClick(e) {
+    var cb = e.target.closest('.cb'); if (!cb) return;
+    var code = function () { return cb.querySelector('code').textContent; }, b;
+    if ((b = e.target.closest('[data-copy]'))) return copy(code(), b, 'Copy');
+    if (e.target.closest('[data-dl]')) { var a = document.createElement('a'), u = URL.createObjectURL(new Blob([code()], { type: 'text/plain' })); a.href = u; a.download = cb.dataset.name || 'file.txt'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000); return toast('Downloading ' + (cb.dataset.name || 'file')); }
+    if ((b = e.target.closest('[data-tab]'))) { var pv = b.dataset.tab === 'pv'; cb.querySelector('.pv').hidden = !pv; cb.querySelector('pre').hidden = pv; cb.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('on', x === b); }); return; }
+    if (e.target.closest('[data-full]')) {
+      var o = el('<div class="fs"><div class="fb"><span>' + esc(cb.dataset.name) + '</span><button aria-label="Close">' + IC.x + '</button></div><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe></div>');
+      previewURL(code()).then(function (u) { o.querySelector('iframe').src = u; }).catch(function (er) { toast(er.message); }); o.querySelector('button').onclick = function () { o.remove(); }; document.body.appendChild(o);
+    }
   }
   function drawMsgs() {
     var inner = $('#inner'); if (!inner) return; inner.replaceChildren();
@@ -178,12 +207,14 @@
       SUG.forEach(function (s) { var b = el('<button><i>' + esc(s[0]) + '</i><span>' + esc(s[1]) + '</span></button>'); b.onclick = function () { send(s[1]); }; h.querySelector('.sug').appendChild(b); });
       inner.appendChild(h); return;
     }
-    S.msgs.forEach(function (m) { inner.appendChild(msgNode(m)); }); var ms = $('#msgs'); ms.style.scrollBehavior = 'auto'; ms.scrollTop = ms.scrollHeight; ms.style.scrollBehavior = '';
+    S.msgs.forEach(function (m) { inner.appendChild(msgNode(m)); }); mountPreviews(inner); var ms = $('#msgs'); ms.style.scrollBehavior = 'auto'; ms.scrollTop = ms.scrollHeight; ms.style.scrollBehavior = '';
   }
   function msgNode(m) {
-    var n = el('<div class="m ' + m.role + '">' + (m.role === 'assistant' ? '<div class="ai">C</div>' : '') + '<div class="c"></div></div>'), c = n.querySelector('.c');
-    if (m.role === 'user') { var sp = splitFiles(m.content); c.innerHTML = (sp.files.length ? '<div class="fchips">' + sp.files.map(chipHTML).join('') + '</div>' : '') + (sp.text ? '<div class="ut"></div>' : ''); var ut = c.querySelector('.ut'); if (ut) ut.textContent = sp.text; if (!sp.files.length && !sp.text) c.textContent = m.content; }
-    else c.innerHTML = m.content ? md(m.content) : '<span class="dots"><i></i><i></i><i></i></span>'; return n;
+    var n = el('<div class="m ' + m.role + '"><div class="c"></div></div>'), c = n.querySelector('.c');
+    if (m.role === 'user') {
+      var sp = splitFiles(m.content); c.innerHTML = (sp.files.length ? '<div class="fchips">' + sp.files.map(chipHTML).join('') + '</div>' : '') + (sp.text ? '<div class="ut"></div>' : ''); var ut = c.querySelector('.ut'); if (ut) ut.textContent = sp.text; if (!sp.files.length && !sp.text) c.textContent = m.content;
+    } else c.innerHTML = (m.content ? '' : '<div class="think"><span class="sp">' + IC.tpl + '</span><span class="tx">Thinking…</span></div>') + '<div class="body">' + (m.content ? md(m.content) : '') + '</div>';
+    return n;
   }
   function plusMenu(btn) {
     var p = $('#pop'), r = btn.getBoundingClientRect();
@@ -219,12 +250,12 @@
     s.onclick = function (e) { var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); } if (b || e.target === s) s.hidden = true; };
   }
   /* smooth "being written" effect: incoming text is revealed at an adaptive speed */
-  function typer(am, node, ms) {
+  function typer(am, node, ms, th) {
     var q = '', raf = 0, done = false, resolve = null;
     function tick() {
       raf = 0;
       if (q) {
-        var n = Math.max(2, Math.ceil(q.length / 14)); am.content += q.slice(0, n); q = q.slice(n);
+        var n = Math.max(3, Math.ceil(q.length / 10)); am.content += q.slice(0, n); q = q.slice(n); if (th && !th.dataset.w) { th.dataset.w = 1; th.querySelector('.tx').textContent = 'Writing…'; }
         node.innerHTML = md(am.content, true);
         var near = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 140; if (near) ms.scrollTop = ms.scrollHeight;
       }
@@ -241,10 +272,11 @@
     try {
       if (!S.cur) { var cv = (await api('POST', '/api/chat/conversations')).conversation; S.cur = cv.id; S.convs.unshift(cv); renderHist(); }
       S.msgs.push({ role: 'user', content: full }, am); drawMsgs();
-      var node = $('#inner').lastChild.querySelector('.c'), ms = $('#msgs');
-      var tw = typer(am, node, ms);
+      var cn = $('#inner').lastChild.querySelector('.c'), node = cn.querySelector('.body'), th = cn.querySelector('.think'), ms = $('#msgs'), t0 = Date.now();
+      var tw = typer(am, node, ms, th);
       await stream('/api/chat/conversations/' + S.cur + '/messages', { content: full, model: S.model || undefined }, function (d) { tw.push(d); });
-      await tw.finish(); node.innerHTML = md(am.content); loadConvs(); loadBal();
+      await tw.finish(); node.innerHTML = md(am.content); mountPreviews(node); loadConvs(); loadBal();
+      if (th) { var sec = Math.max(1, Math.round((Date.now() - t0) / 1000)); th.classList.add('done'); th.innerHTML = '<span class="sp">' + IC.ok + '</span><span class="tx">Worked for ' + (sec >= 60 ? Math.floor(sec / 60) + 'm ' + (sec % 60) + 's' : sec + 's') + '</span>'; }
     } catch (e) { toast(e.message); if (!am.content) { S.msgs = S.msgs.filter(function (m) { return m !== am; }); if (S.page === 'chat') drawMsgs(); } }
     S.busy = false; var s = $('#send'); if (s) s.disabled = false;
   }
@@ -282,7 +314,7 @@
         var topic = $('#tt').value.trim(); if (!topic) return $('#tt').focus(); var b = this, o = $('#to'); b.disabled = true; b.textContent = 'Generating…'; o.hidden = false; o.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; last = '';
         try { var cv = (await api('POST', '/api/chat/conversations')).conversation; var r = 0;
           await stream('/api/chat/conversations/' + cv.id + '/messages', { content: t[3].replace('{t}', topic), model: S.model || undefined }, function (d) { last += d; if (!r) r = requestAnimationFrame(function () { r = 0; o.innerHTML = md(last, true); }); });
-          o.innerHTML = md(last); api('DELETE', '/api/chat/conversations/' + cv.id).catch(function () {}); $('#ta2').hidden = false; loadBal();
+          o.innerHTML = md(last); mountPreviews(o); api('DELETE', '/api/chat/conversations/' + cv.id).catch(function () {}); $('#ta2').hidden = false; loadBal();
         } catch (er) { o.innerHTML = '<span style="color:var(--err)">' + esc(er.message) + '</span>'; }
         b.disabled = false; b.textContent = 'Generate ✨';
         $('#tcp').onclick = function () { copy(last, this, 'Copy result'); }; $('#toc').onclick = function () { S.cur = null; S.msgs = [{ role: 'user', content: topic }, { role: 'assistant', content: last }]; go('chat', true); };

@@ -18,6 +18,20 @@ const addMsg = (cid, role, content, status = 'complete') => {
   return m;
 };
 
+// ---- sandboxed HTML previews (served with a sandbox CSP so generated pages cannot touch the app's cookies) ----
+const previews = new Map();
+router.post('/preview', (req, res) => {
+  const html = String((req.body && req.body.html) || '');
+  if (!html || html.length > 400000) throw new HttpError(400, 'invalid_input', 'Preview is empty or too large.');
+  const pid = id(); previews.set(pid, { html, uid: req.user.id, t: Date.now() });
+  for (const [k, v] of previews) if (Date.now() - v.t > 3600000 || previews.size > 300) previews.delete(k);
+  res.json({ id: pid });
+});
+router.get('/preview/:pid', (req, res) => {
+  const p = previews.get(req.params.pid);
+  if (!p || p.uid !== req.user.id) return res.status(404).send('Preview expired. Reload the chat.');
+  res.set({ 'Content-Security-Policy': 'sandbox allow-scripts allow-forms allow-popups allow-modals', 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' }).send(p.html);
+});
 router.get('/conversations', (req, res) => {
   const limit = Math.min(+req.query.limit || 50, 200);
   res.json({ conversations: db.prepare('SELECT * FROM conversations WHERE user_id=? ORDER BY pinned DESC, COALESCE(last_message_at,created_at) DESC LIMIT ?').all(req.user.id, limit).map(convDTO) });
@@ -56,6 +70,8 @@ router.post('/messages/:id/feedback', (req, res) => {
 
 // ---- Manus agent provider (async tasks, polled and streamed to the browser) ----
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const FILE_RULE = 'Formatting rules for this chat: whenever you create or change a file, script or web page, put the COMPLETE contents in a fenced code block whose info string is the language and the filename, like ```js:Telegram.js or ```html:index.html. Never answer with only a sandbox path such as /home/ubuntu/file; the user cannot open your sandbox, so always paste the full file in the reply. Keep any prose short.';
+const SANDBOX_LINK = /\]\((?:file:\/\/)?\/(?:home|workspace|tmp|mnt)\/[^)]+\)/;
 async function manusReply(conv, history, ac, send) {
   const base = (process.env.MANUS_API_URL || 'https://api.manus.ai').replace(/\/$/, '');
   const H = { 'content-type': 'application/json', 'x-manus-api-key': process.env.MANUS_API_KEY };
@@ -70,28 +86,46 @@ async function manusReply(conv, history, ac, send) {
   const seen = new Set(), last = history[history.length - 1].content;
   if (taskId) {
     ((await list()).messages || []).forEach((m) => seen.add(m.id));
-    await call('/v2/task.sendMessage', { task_id: taskId, message: { content: last } });
+    await call('/v2/task.sendMessage', { task_id: taskId, message: { content: FILE_RULE + '\n\n' + last } });
   } else {
-    const content = history.length > 1 ? history.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n') : last;
-    const j = await call('/v2/task.create', { message: { content }, interactive_mode: false, hide_in_task_list: true, agent_profile: process.env.MANUS_PROFILE || 'standard' });
+    const body = history.length > 1 ? history.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n') : last;
+    const j = await call('/v2/task.create', { message: { content: FILE_RULE + '\n\n' + body }, interactive_mode: false, hide_in_task_list: true, agent_profile: process.env.MANUS_PROFILE || 'standard' });
     taskId = j.task_id;
     db.prepare('UPDATE conversations SET manus_task=? WHERE id=?').run(taskId, conv.id);
   }
-  let text = '', sawNew = false;
-  for (const t0 = Date.now(); Date.now() - t0 < 300000;) {
-    await sleep(2000); if (ac.signal.aborted) break;
-    let status = null;
-    for (const m of (await list()).messages || []) {
-      const fresh = !seen.has(m.id); if (fresh) { seen.add(m.id); sawNew = true; }
-      if (m.type === 'status_update') status = m.status_update?.agent_status;
-      else if (fresh && m.type === 'assistant_message' && m.assistant_message?.content) {
-        const t = (text ? '\n\n' : '') + m.assistant_message.content; text += t; send('delta', { text: t });
-      } else if (fresh && m.type === 'error_message') throw new Error('manus task error: ' + (m.error_message?.content || ''));
+  let text = '';
+  const add = (t) => { t = (text ? '\n\n' : '') + t; text += t; send('delta', { text: t }); };
+  // Poll until the agent is done. Only trust "stopped/waiting" after we have seen it running (or some time passed).
+  async function round(maxMs) {
+    let sawRun = false, sawNew = false;
+    for (const t0 = Date.now(); Date.now() - t0 < maxMs;) {
+      await sleep(2000); if (ac.signal.aborted) return;
+      let status = null;
+      for (const m of (await list()).messages || []) {
+        const fresh = !seen.has(m.id); if (fresh) { seen.add(m.id); sawNew = true; }
+        if (m.type === 'status_update') status = m.status_update?.agent_status;
+        else if (fresh && m.type === 'assistant_message') {
+          const am = m.assistant_message || {};
+          if (am.content) add(am.content);
+          const atts = am.attachments || am.files || [];
+          atts.forEach((f) => { const u = f.url || f.download_url || f.file_url; if (u) add(`[${f.filename || f.name || 'download'}](${u})`); });
+          if (!am.content && !atts.length) console.log('[manus] assistant_message keys:', Object.keys(am).join(','));
+        } else if (fresh && m.type === 'error_message') throw new Error('manus task error: ' + (m.error_message?.content || ''));
+        else if (fresh && m.type !== 'user_message') console.log('[manus] message type:', m.type, Object.keys(m).join(','));
+      }
+      if (status === 'running') sawRun = true;
+      if (sawNew && status === 'error') throw new Error('manus task failed');
+      if ((status === 'stopped' || status === 'waiting') && (sawRun || Date.now() - t0 > 20000)) return;
     }
-    if (sawNew && status === 'error') throw new Error('manus task failed');
-    if (sawNew && (status === 'stopped' || status === 'waiting')) break;
   }
-  if (!text && !ac.signal.aborted) { text = 'The agent finished without a text reply.'; send('delta', { text }); }
+  await round(420000);
+  // Manus often answers "[Download file](/home/ubuntu/x.js)": a path inside ITS sandbox. Ask it to paste the file instead.
+  if (!ac.signal.aborted && SANDBOX_LINK.test(text)) {
+    await call('/v2/task.sendMessage', { task_id: taskId, message: { content: 'I cannot open sandbox paths. Paste the COMPLETE contents of every file you created or changed as fenced code blocks labelled with the filename, e.g. ```js:Telegram.js. No other text needed.' } });
+    send('delta', { text: '\n\n' });
+    await round(300000);
+  }
+  if (!text && !ac.signal.aborted) add('The agent finished without a text reply.');
   return { text, tin: Math.ceil(last.length / 4), tout: Math.ceil(text.length / 4) };
 }
 
@@ -156,7 +190,7 @@ async function streamReply(req, res, conv) {
   }
   db.prepare('UPDATE messages SET content=?, status=?, model=?, tokens_in=?, tokens_out=? WHERE id=?').run(text, status, model, tin, tout, a.id);
   db.prepare('UPDATE conversations SET last_message_at=? WHERE id=?').run(now(), conv.id);
-  spend(req.user.id, tin + tout);
+  spend(req.user.id, Math.ceil((tin + tout) * (pick.cost || 1)));
   if (status === 'complete') send('done', { usage: { inputTokens: tin, outputTokens: tout }, model, balance: balanceOf(req.user) });
   res.end();
 }
