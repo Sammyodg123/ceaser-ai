@@ -25,12 +25,14 @@ const PROVIDERS = {
   cerebras:   { key: 'CEREBRAS_API_KEY',   type: OA, label: 'Cerebras',      base: () => 'https://api.cerebras.ai/v1',                                         model: () => 'llama-3.3-70b' },
   nvidia:     { key: 'NVIDIA_API_KEY',     type: OA, label: 'NVIDIA',        base: () => 'https://integrate.api.nvidia.com/v1',                                model: () => 'meta/llama-3.3-70b-instruct' },
   perplexity: { key: 'PERPLEXITY_API_KEY', type: OA, label: 'Perplexity',    base: () => 'https://api.perplexity.ai',                                          model: () => 'sonar' },
-  openrouter: { key: 'OPENROUTER_API_KEY', type: OA, label: 'OpenRouter',    base: () => 'https://openrouter.ai/api/v1',                                       model: () => 'openai/gpt-4o' },
+  openrouter: { key: 'OPENROUTER_API_KEY', type: OA, label: 'OpenRouter',    base: () => 'https://openrouter.ai/api/v1',                                       model: () => 'meta-llama/llama-3.3-70b-instruct:free' },
   ollama:     { key: 'OLLAMA_BASE_URL',    type: OA, label: 'Ollama (local)', noauth: true, base: () => process.env.OLLAMA_BASE_URL,                              model: () => 'llama3.2' },
+  // FREE, no key needed (anonymous public API). Turn off with FREE_AI=off. Always last so it is only the Auto fallback when nothing else is set.
+  pollinations: { key: null, always: true, free: true, noauth: true, type: OA, label: 'Free AI', base: () => process.env.FREE_BASE_URL || 'https://text.pollinations.ai/openai', model: () => process.env.FREE_MODEL || 'openai' },
   custom:     { key: 'CUSTOM_API_KEY',     type: OA, label: 'Custom',        base: () => process.env.CUSTOM_BASE_URL || '',                                    model: () => '' },
 };
-Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
-const hasKey = (p) => !!(PROVIDERS[p] && process.env[PROVIDERS[p].key]);
+Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
+const hasKey = (p) => { const P = PROVIDERS[p]; if (!P) return false; if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!process.env[P.key]; };
 const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
 
 // default model id(s) of a provider: <PREFIX>_MODELS="a,b,c"  or  <PREFIX>_MODEL=a  or built-in default
@@ -51,14 +53,14 @@ function all() {
   Object.keys(PROVIDERS).forEach((p) => {
     if (!hasKey(p)) return;
     const ids = idsOf(p);
-    ids.forEach((id) => out.push({ id, label: ids.length > 1 ? PROVIDERS[p].label + ' · ' + id.split('/').pop() : PROVIDERS[p].label, desc: id, provider: p, cost: extra() }));
+    ids.forEach((id) => out.push({ id, label: ids.length > 1 ? PROVIDERS[p].label + ' · ' + id.split('/').pop() : PROVIDERS[p].label, desc: id, provider: p, cost: PROVIDERS[p].free ? 1 : extra() }));
   });
   return out;
 }
 function autoProvider() {
   const want = (process.env.AUTO_PROVIDER || 'manus').toLowerCase();
   if (hasKey(want)) return want;
-  return Object.keys(PROVIDERS).find(hasKey) || null;
+  return Object.keys(PROVIDERS).find(hasKey) || null; // no keys at all -> the free public AI keeps the app working
 }
 const list = () => {
   const ap = autoProvider(); if (!ap) return [];
@@ -67,7 +69,7 @@ const list = () => {
   const rest = all().filter((m) => hasKey(m.provider) && !(m.provider === ap && m.id === autoModel));
   return [auto].concat(rest);
 };
-const pub = () => list().map(({ id, label, desc, cost }) => ({ id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'normal cost'), cost }));
+const pub = () => list().map(({ id, label, desc, cost }) => ({ id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'free / normal cost'), cost }));
 function find(id) {
   const l = list(); if (!l.length) return null;
   const m = (id && l.find((x) => x.id === id)) || l[0];

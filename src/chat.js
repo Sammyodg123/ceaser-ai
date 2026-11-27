@@ -151,7 +151,7 @@ async function streamReply(req, res, conv) {
       const base = P.base().replace(/\/$/, ''); if (!base) throw new Error('missing base url for ' + prov);
       const r = await fetch(base + '/chat/completions', { method: 'POST', signal: ac.signal,
         headers: Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + process.env[P.key] }),
-        body: JSON.stringify({ model, stream: true, stream_options: { include_usage: true }, messages: [{ role: 'system', content: SYSTEM }, ...history] }) });
+        body: JSON.stringify({ model, stream: true, ...(P.free ? {} : { stream_options: { include_usage: true } }), messages: [{ role: 'system', content: SYSTEM }, ...history] }) });
       if (!r.ok) throw Object.assign(new Error(`provider ${r.status} ${(await r.text()).slice(0, 200)}`), { provider: true });
       const dec = new TextDecoder(); let buf = '';
       for await (const chunk of r.body) {
