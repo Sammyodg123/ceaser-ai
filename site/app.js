@@ -49,7 +49,7 @@
   function initial(n) { return (n || '?').trim().charAt(0).toUpperCase(); }
 
   /* ---------- static reveal: nothing slides or fades in, content is simply there ---------- */
-  function reveal(root) { root.querySelectorAll('.rv').forEach(function (n) { n.classList.add('in'); }); }
+  function reveal(root) { if (window.CzFX) CzFX.reveal(root); else root.querySelectorAll('.rv').forEach(function (n) { n.classList.add('in'); }); }
 
   /* ---------- landing ---------- */
   var timers = [];
@@ -63,10 +63,10 @@
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
       (S.user && S.user.emailVerified ? '<div class="acct" id="acct"><button class="acct-b" id="acctb" aria-haspopup="true" aria-expanded="false"><span class="acct-av">' + esc(initial(S.user.name)) + '</span><span class="acct-n">' + esc(S.user.name) + '</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><div class="acct-m" id="acctm" hidden><div class="acct-i"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div><a href="/chat.html">Open chat</a><a href="/chat.html#dashboard">Dashboard</a><a href="/chat.html#settings">Settings</a><button id="acctso">Sign out</button></div></div>' : '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button>') + '</div></nav>' +
       '<header class="hero"><div><div class="pill live-pill" id="lpill"><b></b><span class="lt">CEASER AI · Online and ready</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>' +
-      '<h1 class="h1one">All the AI. <span class="grad">One clean app.</span></h1><div class="engline"><span>Powered by</span><b class="type" id="ty">Claude</b></div><div class="signal-row" aria-label="Live AI engines"><span><i></i> Claude <small>ready</small></span><span><i></i> Gemini <small>ready</small></span><span><i></i> Live replies <small>on</small></span></div>' +
-      '<p class="lead">Every top AI engine in one clean place. Auto picks the best one for each job, or you pick any engine yourself. Chat, build websites, write code, read screenshots and generate images.</p><div class="engchips" id="engchips"></div>' +
+      '<h1 class="h1one"><span class="l1">Your AI for</span> <span class="tw" id="tw">learning</span><span class="l2"><span class="grad">built to ship.</span></span></h1><div class="engline"><span>Powered by</span><b class="type" id="ty">Claude</b></div><div class="signal-row" aria-label="Live AI engines"><span><i></i> Claude <small>ready</small></span><span><i></i> Gemini <small>ready</small></span><span><i></i> Live replies <small>on</small></span></div>' +
+      '<p class="lead">Chat, write, debug and build with an assistant that streams answers instantly, remembers your conversations and never gets in your way.</p><div class="engchips" id="engchips"></div>' +
       '<div class="cta"><button class="btn lg" id="su2">' + (S.user && S.user.emailVerified ? 'Open chat →' : 'Start free →') + '</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
-      '<div class="stats"><div><b>20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
+      '<div class="stats"><div><b data-to="20" data-suf="k">20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
       '<div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="demo-tools"><span>Live prompt preview</span><button id="replay">Replay</button></div><div class="body" id="demo"></div></div></header>' +
       '<div class="marq" aria-hidden="true"><div class="mt"><span>Claude</span><span>Gemini</span><span>Grok</span><span>NVIDIA</span><span>Groq</span><span>DeepSeek</span><span>Qwen</span><span>Llama</span><span>Mistral</span><span>WormGPT</span><span>Claude</span><span>Gemini</span><span>Grok</span><span>NVIDIA</span><span>Groq</span><span>DeepSeek</span><span>Qwen</span><span>Llama</span><span>Mistral</span><span>WormGPT</span></div></div>' +
       '<section class="sec" id="features"><h2 class="rv">Everything you need, <span class="grad">nothing you don’t</span></h2><p class="sub rv">Fast, focused and designed to feel great on your phone.</p><div class="grid">' +
@@ -124,7 +124,7 @@
     document.addEventListener('click', function h(e) { if (!nav.isConnected) return document.removeEventListener('click', h); if (nav.classList.contains('open') && !nav.contains(e.target)) { nav.classList.remove('open'); navmenu.textContent = '☰'; navmenu.setAttribute('aria-expanded', 'false'); } });
     n.querySelectorAll('.navlinks a').forEach(function (a) { a.onclick = function () { nav.classList.remove('open'); navmenu.textContent = '☰'; }; });
     n.querySelector('#replay').onclick = function () { demoLoop(n.querySelector('#demo')); };
-    reveal(n); typeLoop(n.querySelector('#ty')); demoLoop(n.querySelector('#demo'));
+    if (window.CzFX) CzFX.init(n); reveal(n); typeLoop(n.querySelector('#tw')); demoLoop(n.querySelector('#demo'));
     renderPlans(n.querySelector('#pl'));
     (function skills() {
       var SK = [
@@ -155,7 +155,21 @@
     });
     reveal(box);
   }
-  function typeLoop() { /* removed: the typing caret changed the hero width on every tick */ }
+  var TW = ['learning', 'coding', 'writing', 'debugging', 'building', 'creating'];
+  function typeLoop(node) {
+    if (!node) return;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var wi = 0, ci = node.textContent.length, del = true;
+    function step() {
+      if (!node.isConnected) return;
+      var w = TW[wi];
+      if (!del) { ci++; node.textContent = w.slice(0, ci); if (ci >= w.length) { del = true; return later(step, 1700); } return later(step, 85); }
+      ci--; node.textContent = w.slice(0, ci);
+      if (ci <= 0) { del = false; wi = (wi + 1) % TW.length; return later(step, 260); }
+      later(step, 42);
+    }
+    later(step, 1800);
+  }
   var DEMO = [
     ['Write a function that reverses a string', 'Here you go:', 'function reverse(s) {\n  return [...s].reverse().join(\"\");\n}'],
     ['Explain recursion in one line', 'A function that solves a problem by calling itself on a smaller piece until it hits a simple case.', ''],
@@ -172,21 +186,27 @@
     var u = el('<div class="b u"></div>'); u.textContent = s[0]; frag.appendChild(u);
     var a = el('<div class="b a"><span class="demo-status"><i></i><i></i><i></i></span></div>'); frag.appendChild(a);
     box.replaceChildren(frag);
-    var answer = String(s[1] || ''), code = String(s[2] || ''), pos = 0;
+    var answer = String(s[1] || ''), code = String(s[2] || ''), pos = 0, cpos = 0, pre = null, txt = document.createTextNode(''), caret = el('<span class="caret"></span>');
     function typeAnswer() {
       if (!box.isConnected) return;
+      if (pos === 0) { a.replaceChildren(txt, caret); }
       if (pos < answer.length) {
-        pos += Math.max(1, answer.length > 90 ? 2 : 1);
-        a.replaceChildren(document.createTextNode(answer.slice(0, pos)));
-        box._demoTimer = setTimeout(typeAnswer, 22);
+        pos += answer.length > 90 ? 2 : 1;
+        txt.nodeValue = answer.slice(0, pos);
+        box._demoTimer = setTimeout(typeAnswer, 20);
         return;
       }
       if (code) {
-        var pre = el('<pre></pre>'); pre.textContent = code; a.appendChild(pre);
+        if (!pre) { pre = el('<pre></pre>'); a.insertBefore(pre, caret); }
+        if (cpos < code.length) {
+          cpos += 2; pre.textContent = code.slice(0, cpos);
+          box._demoTimer = setTimeout(typeAnswer, 16);
+          return;
+        }
       }
+      caret.remove();
       box._demoTimer = null;
-      // Keep the homepage alive, but never leave a growing timer chain behind.
-      if (!scr && box.isConnected) box._demoTimer = setTimeout(function () { demoLoop(box); }, 5200);
+      if (!scr && box.isConnected) box._demoTimer = setTimeout(function () { demoLoop(box); }, 4200);
     }
     box._demoTimer = setTimeout(typeAnswer, 520);
   }
