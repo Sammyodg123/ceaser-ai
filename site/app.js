@@ -68,13 +68,13 @@
   function landing() {
     clearTimers();
     var n = el('<div>' +
-      '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div>' + (S.user ? '<a class="acct" id="acct" href="/chat.html"><span class="av">' + esc(initial(S.user.name)) + '</span><span class="am"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></span><span class="go">Open chat →</span></a>' : '') + '<div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
+      '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
-      '' + (S.user ? '' : '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button>') + '</div></nav>' +
-      '<header class="hero"><div><div class="pill" id="pill"><span class="pdot"><i></i></span><span class="ptxt"><b>CEASER AI</b><em id="pst">Online and ready</em></span><span class="pbars"><i></i><i></i><i></i></span></div>' +
+      '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button></div></nav>' +
+      '<header class="hero"><div><div class="pill"><b></b>CEASER AI · Online and ready</div>' +
       '<h1>Your AI for <span class="type" id="ty"></span><br><span class="grad">built to ship.</span></h1>' +
       '<p class="lead">Chat, write, debug and build with an assistant that streams answers instantly, remembers your conversations and never gets in your way.</p>' +
-      '<div class="cta">' + (S.user ? '<a class="btn lg" id="su2" href="/chat.html" style="text-decoration:none;display:inline-block">Open my chat →</a>' : '<button class="btn lg" id="su2">Start free →</button>') + '<a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
+      '<div class="cta"><button class="btn lg" id="su2">Start free →</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
       '<div class="stats"><div><b>20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
       '<div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="demo-tools"><span>Live prompt preview</span><button id="replay">Replay</button></div><div class="body" id="demo"></div></div></header>' +
       '<section class="sec" id="features"><h2 class="rv">Everything you need, <span class="grad">nothing you don\'t</span></h2><p class="sub rv">Fast, focused and designed to feel great on your phone.</p><div class="grid">' +
@@ -97,8 +97,8 @@
       '<section class="sec" id="contact"><div class="contact rv"><small>CONTACT</small><a class="mail" id="cmail" href="#">Talk to us</a><p style="margin:0;color:var(--mute)">Partnerships, custom plans or support. Write to the CEASER AI team.</p></div></section>' +
       '<footer class="foot">© ' + new Date().getFullYear() + ' CEASER AI · Built by Ceaser</footer></div>');
     $app.replaceChildren(n);
-    if (!S.user) { n.querySelector('#li').onclick = function () { authModal('login'); }; n.querySelector('#su').onclick = n.querySelector('#su2').onclick = function () { authModal('signup'); }; }
-    pillLoop(n.querySelector('#pst'));
+    n.querySelector('#li').onclick = function () { authModal('login'); };
+    n.querySelector('#su').onclick = n.querySelector('#su2').onclick = function () { authModal('signup'); };
     var nav = n.querySelector('.nav'), navmenu = n.querySelector('#navmenu');
     navmenu.onclick = function () { nav.classList.toggle('open'); navmenu.textContent = nav.classList.contains('open') ? '×' : '☰'; };
     n.querySelectorAll('.navlinks a').forEach(function (a) { a.onclick = function () { nav.classList.remove('open'); navmenu.textContent = '☰'; }; });
@@ -106,10 +106,6 @@
     reveal(n); typeLoop(n.querySelector('#ty')); demoLoop(n.querySelector('#demo'));
     renderPlans(n.querySelector('#pl'));
     fetch('/api/public/config').then(function (r) { return r.json(); }).then(function (c) { var a = n.querySelector('#cmail'); if (a && c.app && c.app.email) { a.textContent = c.app.email; a.href = 'mailto:' + c.app.email; } }).catch(function () {});
-  }
-  function pillLoop(node) {
-    var msgs = ['Online and ready', 'Streaming replies live', 'Ready when you are'], i = 0;
-    var t = setInterval(function () { if (!node.isConnected) return clearInterval(t); node.classList.add('sw'); setTimeout(function () { node.textContent = msgs[++i % msgs.length]; node.classList.remove('sw'); }, 260); }, 3600);
   }
   function feat(i, t, p) { return '<div class="card rv"><div class="ic">' + i + '</div><h3>' + t + '</h3><p>' + p + '</p></div>'; }
   async function renderPlans(box) {
@@ -204,7 +200,7 @@
         else {
           var ref = new URLSearchParams(location.search).get('ref') || undefined;
           var r = await api('POST', signup ? '/api/auth/signup' : '/api/auth/login', signup ? { name: v('name'), email: v('email'), password: v('pass'), website: v('website'), ref: ref } : { email: v('email'), password: v('pass') });
-          S.user = r.user; location.href = r.user && r.user.emailVerified === false ? '/' : '/chat.html'; return;
+          S.user = r.user; ov.remove(); route(); return;
         }
       } catch (e) { fail(e.message); }
       go.disabled = false; go.classList.remove('load');
@@ -277,7 +273,7 @@
         await wait(1700 - (Date.now() - t0));
         state('ok'); card.classList.add('good'); go.classList.remove('load'); go.querySelector('span').textContent = 'Verified';
         kick.textContent = 'Success'; ttl.textContent = 'Verified!'; sub.textContent = 'You\'re all set.';
-        setTimeout(function () { location.href = '/chat.html'; }, 1700);
+        setTimeout(function () { history.replaceState(null, '', '/'); route(); }, 1700);
         return;
       } catch (e) {
         await wait(1500 - (Date.now() - t0));
@@ -324,7 +320,7 @@
       catch (e) { n.querySelector('#err').textContent = e.message; }
     };
   }
-  async function logout() { try { await api('POST', '/api/auth/logout'); } catch (e) {} S.user = null; S.convs = []; S.cur = null; S.msgs = []; history.replaceState(null, '', '/'); route(); }
+  async function logout() { try { await api('POST', '/api/auth/logout'); } catch (e) {} S.user = null; S.convs = []; S.cur = null; S.msgs = []; route(); }
 
   /* ---------- app shell (sidebar + pages) ---------- */
   var NAV_ITEMS = [
@@ -1004,8 +1000,7 @@
     if (p === '/reset-password' && q.get('token')) return resetView(q.get('token'));
     if (!S.user) { landing(); if (p === '/register') authModal('signup'); else if (p === '/login') authModal('login'); return; }
     if (!S.user.emailVerified) return verifyView(p === '/verify-email' ? q.get('token') : null);
-    if (p === '/') return landing();
-    location.replace('/chat.html');
+    renderApp();
   }
   var startupAt = performance.now();
   function finishStartup() {
