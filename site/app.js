@@ -58,12 +58,12 @@
 
   function landing() {
     clearTimers();
-    var n = el('<div>' +
+    var n = el('<div class="landing-shell">' +
       '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
       (S.user && S.user.emailVerified ? '<div class="acct" id="acct"><button class="acct-b" id="acctb" aria-haspopup="true" aria-expanded="false"><span class="acct-av">' + esc(initial(S.user.name)) + '</span><span class="acct-n">' + esc(S.user.name) + '</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><div class="acct-m" id="acctm" hidden><div class="acct-i"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div><a href="/chat.html">Open chat</a><a href="/chat.html#dashboard">Dashboard</a><a href="/chat.html#settings">Settings</a><button id="acctso">Sign out</button></div></div>' : '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button>') + '</div></nav>' +
       '<header class="hero"><div><div class="pill live-pill" id="lpill"><b></b><span class="lt">CEASER AI · Online and ready</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>' +
-      '<h1 class="h1one">All the AI. <span class="grad">One clean app.</span></h1><div class="engline"><span>Powered by</span><b class="type" id="ty">Claude</b></div>' +
+      '<h1 class="h1one">All the AI. <span class="grad">One clean app.</span></h1><div class="engline"><span>Powered by</span><b class="type" id="ty">Claude</b></div><div class="signal-row" aria-label="Live AI engines"><span><i></i> Claude <small>ready</small></span><span><i></i> Gemini <small>ready</small></span><span><i></i> Live replies <small>on</small></span></div>' +
       '<p class="lead">Every top AI engine in one clean place. Auto picks the best one for each job, or you pick any engine yourself. Chat, build websites, write code, read screenshots and generate images.</p><div class="engchips" id="engchips"></div>' +
       '<div class="cta"><button class="btn lg" id="su2">' + (S.user && S.user.emailVerified ? 'Open chat →' : 'Start free →') + '</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
       '<div class="stats"><div><b>20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
@@ -164,13 +164,31 @@
     ['Debug: TypeError: cannot read properties of undefined', 'Something is undefined before you read it. Guard it first:', 'const name = user?.profile?.name ?? \"guest\";']
   ];
   function demoLoop(box, scr) {
+    if (!box) return;
+    if (box._demoTimer) { clearTimeout(box._demoTimer); box._demoTimer = null; }
     var s;
-    if (scr) s = scr[0]; else { box._i = ((box._i == null ? -1 : box._i) + 1) % DEMO.length; s = DEMO[box._i]; }
+    if (scr) s = scr; else { box._i = ((box._i == null ? -1 : box._i) + 1) % DEMO.length; s = DEMO[box._i]; }
     var frag = document.createDocumentFragment();
     var u = el('<div class="b u"></div>'); u.textContent = s[0]; frag.appendChild(u);
-    var a = el('<div class="b a"></div>'); a.appendChild(document.createTextNode(s[1]));
-    if (s[2]) { var pre = el('<pre></pre>'); pre.textContent = s[2]; a.appendChild(pre); }
-    frag.appendChild(a); box.replaceChildren(frag);
+    var a = el('<div class="b a"><span class="demo-status"><i></i><i></i><i></i></span></div>'); frag.appendChild(a);
+    box.replaceChildren(frag);
+    var answer = String(s[1] || ''), code = String(s[2] || ''), pos = 0;
+    function typeAnswer() {
+      if (!box.isConnected) return;
+      if (pos < answer.length) {
+        pos += Math.max(1, answer.length > 90 ? 2 : 1);
+        a.replaceChildren(document.createTextNode(answer.slice(0, pos)));
+        box._demoTimer = setTimeout(typeAnswer, 22);
+        return;
+      }
+      if (code) {
+        var pre = el('<pre></pre>'); pre.textContent = code; a.appendChild(pre);
+      }
+      box._demoTimer = null;
+      // Keep the homepage alive, but never leave a growing timer chain behind.
+      if (!scr && box.isConnected) box._demoTimer = setTimeout(function () { demoLoop(box); }, 5200);
+    }
+    box._demoTimer = setTimeout(typeAnswer, 520);
   }
 
   /* ---------- auth modal (neon ring) ---------- */
