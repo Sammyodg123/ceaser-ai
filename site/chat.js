@@ -28,6 +28,13 @@
     card: '<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
     eye: '<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
     back: '<svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+    dots: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="19" r="1.3"/></svg>',
+    copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>',
+    share: '<svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>',
+    mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+    wa: '<svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9c0 3 3 6 6 6l1-1.5-2-1-1 .8c-1-.4-2-1.400-2.400-2.400l.8-1-1-2z"/></svg>',
+    xx: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>',
+    home2: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.500V21h5v-6h4v6h5V9.500"/></svg>',
     tag: '<svg viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.2"/></svg>'
   };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -130,14 +137,13 @@
   function renderChat(main) {
     main.innerHTML = '<div class="msgs" id="msgs"><div class="in" id="inner"></div></div>' +
       '<div class="dock"><div class="comp"><div class="files" id="files"></div><textarea id="ta" rows="1" placeholder="Message CEASER AI…"></textarea>' +
-      '<div class="crow"><button class="cbtn" id="plus" aria-label="Add">' + IC.plus + '</button><button class="mchip" id="mchip">' + IC.cpu.replace('<svg', '<svg width="14" height="14"') + '<span id="ml">' + esc(modelLabel()) + '</span>' + IC.chev + '</button><span class="sp"></span><button class="cbtn" id="mic" aria-label="Voice input">' + IC.mic + '</button><button class="send" id="send" aria-label="Send">' + IC.up + '</button></div></div>' +
+      '<div class="crow"><button class="cbtn" id="att" aria-label="Upload file" title="Upload file">' + IC.clip + '</button><button class="cbtn" id="mic" aria-label="Voice input" title="Voice input">' + IC.mic + '</button><button class="mchip" id="mchip">' + IC.cpu.replace('<svg', '<svg width="14" height="14"') + '<span id="ml">' + esc(modelLabel()) + '</span>' + IC.chev + '</button><span class="sp"></span><button class="send" id="send" aria-label="Send">' + IC.up + '</button></div></div>' +
       '<p class="hint">CEASER AI can make mistakes. Verify important information.</p></div>';
     var ta = $('#ta');
     ta.oninput = function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 170) + 'px'; };
     ta.onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey && innerWidth > 760) { e.preventDefault(); send(); } };
     $('#send').onclick = function () { send(); };
-    $('#plus').onclick = function (e) { plusMenu(e.currentTarget); };
-    $('#mchip').onclick = modelSheet; $('#mic').onclick = dictate;
+    $('#att').onclick = pickFile; $('#mchip').onclick = modelSheet; $('#mic').onclick = dictate;
     $('#inner').onclick = function (e) { var b = e.target.closest('[data-copy]'); if (b) copy(b.closest('.cb').querySelector('code').textContent, b, 'Copy'); };
     drawMsgs(); drawFiles();
   }
@@ -162,7 +168,7 @@
     setTimeout(function () { document.addEventListener('pointerdown', function h(e) { if (!p.contains(e.target)) { p.hidden = true; document.removeEventListener('pointerdown', h); } }); }, 0);
   }
   function pickFile() {
-    var i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.java,.c,.cpp,.go,.rs,.sql,.xml,.yml,.yaml,.log';
+    var i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.txt,.md,.csv,.json,.js,.jsx,.ts,.tsx,.py,.html,.css,.java,.c,.cpp,.go,.rs,.php,.rb,.sh,.sql,.xml,.yml,.yaml,.log,.env,.ini,.toml,text/*';
     i.onchange = function () { Array.from(i.files).slice(0, 4).forEach(function (f) { if (f.size > 400000) return toast(f.name + ' is too large (max 400 KB).'); var r = new FileReader(); r.onload = function () { S.files.push({ name: f.name, text: String(r.result).slice(0, 12000) }); drawFiles(); }; r.readAsText(f); }); };
     i.click();
   }
@@ -178,8 +184,8 @@
     rec = new SR(); rec.interimResults = true; rec.continuous = true; rec.lang = navigator.language || 'en-US';
     var base = ta.value ? ta.value + ' ' : '';
     rec.onresult = function (e) { var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; ta.value = base + t; ta.oninput(); };
-    rec.onend = function () { rec = null; mic && mic.classList.remove('rec'); }; rec.onerror = function (e) { toast(e.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice input stopped.'); };
-    try { rec.start(); mic.classList.add('rec'); } catch (e) { rec = null; }
+    rec.onend = function () { rec = null; mic && mic.classList.remove('rec'); ta.placeholder = 'Message CEASER AI…'; }; rec.onerror = function (e) { toast(e.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice input stopped.'); };
+    try { rec.start(); mic.classList.add('rec'); ta.placeholder = 'Listening…'; toast('Listening — tap the mic again to stop'); } catch (e) { rec = null; }
   }
   function modelSheet() {
     var s = $('#sheet'), ms = S.models.length ? S.models : [{ id: '', label: 'Auto', desc: 'Best available model' }];
@@ -224,11 +230,16 @@
   }
   var TPL = [['✍️', 'Blog Post', 'Article with intro, sections and CTA', 'Write a detailed, engaging blog post about: {t}. Include an introduction, 3-4 sections with subheadings, and a conclusion.'], ['📧', 'Cold Email', 'High-converting outreach', 'Write a concise, personalized cold email for: {t}. Friendly, value-focused, with a clear call to action.'], ['💻', 'Code Review', 'Bugs, improvements, refactor', 'Review this code and give bugs found, improvements, best practices and a refactored version. Code: {t}'], ['📄', 'Resume Bio', 'Professional summary', 'Write a compelling 3-4 sentence professional resume summary. Role/background: {t}.'], ['🗺️', 'Project Plan', 'Phases, milestones, risks', 'Create a detailed project plan for: {t}. Include phases, milestones, tasks, timeline estimates and risks.'], ['📱', 'Social Post', '3 engaging variations', 'Write 3 variations of a social media post about: {t}, each engaging, with emojis and a call to action.'], ['🔍', 'Explain Concept', 'Clear, with examples', 'Explain {t} clearly. Start simple, go deeper, use a real-world analogy, and end with a practical example.'], ['🐛', 'Debug Helper', 'Find and fix bugs fast', 'Help me debug this issue: {t}. Identify the root cause, explain why, and provide a fix.']];
   function renderTemplates(main) {
-    var w = page(main, '<h1>AI Templates</h1><p class="sb">Pick a template, describe your topic, get a result instantly.</p><div class="tg">' + TPL.map(function (t, i) { return '<button class="tc" data-i="' + i + '"><div class="e">' + t[0] + '</div><b>' + t[1] + '</b><span>' + t[2] + '</span></button>'; }).join('') + '</div><div id="ws"></div>');
+    var slug = function (s) { return s.toLowerCase().replace(/\s+/g, '-'); };
+    var w = page(main, '<h1>AI Templates</h1><p class="sb">Pick a template, add your topic, get a result instantly.</p><div class="tg">' + TPL.map(function (t, i) {
+      var pv = esc(t[3]).replace('{t}', '<u>{topic}</u>');
+      return '<button class="tc cbk" data-i="' + i + '"><div class="h"><span class="tl"><i></i><i></i><i></i></span><em>' + slug(t[1]) + '.tpl</em><b>' + t[0] + '</b></div><pre>' + pv + '</pre><div class="f"><span><strong>' + esc(t[1]) + '</strong> · ' + esc(t[2]) + '</span><span class="use">Use ↗</span></div></button>';
+    }).join('') + '</div><div id="ws"></div>');
     w.onclick = function (e) {
       var c = e.target.closest('.tc'); if (!c) return; var t = TPL[c.dataset.i], last = '';
-      $('#ws').innerHTML = '<div class="card" style="margin-top:14px"><h3>' + t[0] + ' ' + t[1] + '</h3><div class="fld"><textarea id="tt" placeholder="Describe your topic or paste your content…"></textarea></div><button class="btn" id="tr">Generate ✨</button><div class="out" id="to" hidden></div><div id="ta2" style="margin-top:10px;display:flex;gap:8px" hidden><button class="btn g" id="tcp">Copy result</button><button class="btn g" id="toc">Open in chat →</button></div></div>';
-      $('#ws').scrollIntoView({ behavior: 'smooth' }); $('#tt').focus();
+      w.querySelectorAll('.tc').forEach(function (x) { x.classList.toggle('sel', x === c); });
+      $('#ws').innerHTML = '<div class="cbk wsb"><div class="h"><span class="tl"><i></i><i></i><i></i></span><em>' + slug(t[1]) + '.tpl</em><b>' + t[0] + '</b></div><div class="wsc"><div class="fld"><label>Your topic</label><textarea id="tt" placeholder="Describe your topic or paste your content…"></textarea></div><button class="btn" id="tr">Generate ✨</button><div class="out" id="to" hidden></div><div class="tact" id="ta2" hidden><button class="btn g" id="tcp">Copy result</button><button class="btn g" id="toc">Open in chat →</button></div></div></div>';
+      $('#ws').scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(function () { $('#tt').focus({ preventScroll: true }); }, 350);
       $('#tr').onclick = async function () {
         var topic = $('#tt').value.trim(); if (!topic) return $('#tt').focus(); var b = this, o = $('#to'); b.disabled = true; b.textContent = 'Generating…'; o.hidden = false; o.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; last = '';
         try { var cv = (await api('POST', '/api/chat/conversations')).conversation; var r = 0;
@@ -241,14 +252,24 @@
     };
   }
   function renderRef(main) {
-    var r = S.user.referral || {}, link = r.link || '—', n = r.verifiedCount || 0, p = n % 5;
-    var w = page(main, '<h1>Referrals</h1><p class="sb">Every 5 friends who sign up and verify earns you a bonus token pack.</p><div class="card"><h3>Your referral link</h3><div style="display:flex;gap:8px"><input readonly id="rl" value="' + esc(link) + '"><button class="btn" id="rc">Copy</button></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn g" data-u="https://wa.me/?text=' + encodeURIComponent('Join me on CEASER AI! ' + link) + '">WhatsApp</button><button class="btn g" data-u="https://twitter.com/intent/tweet?text=' + encodeURIComponent('Try CEASER AI ' + link) + '">X / Twitter</button><button class="btn g" data-u="mailto:?subject=Try%20CEASER%20AI&body=' + encodeURIComponent(link) + '">Email</button></div></div>' +
-      '<div class="card"><h3>Progress to next reward <span class="msg" style="float:right">' + n + ' verified</span></h3><div class="dotsr">' + [0, 1, 2, 3, 4].map(function (i) { return '<i class="' + (i < p ? 'f' : '') + '"></i>'; }).join('') + '</div><small style="color:var(--mu)">' + (5 - p) + ' more verified ' + (5 - p === 1 ? 'friend' : 'friends') + ' to your next bonus.</small></div>' +
-      '<div class="stats" style="grid-template-columns:repeat(3,1fr)"><div class="st"><b>' + n + '</b><span>Verified</span></div><div class="st"><b>' + Math.floor(n / 5) + '</b><span>Rewards</span></div><div class="st"><b style="font-size:16px">' + esc(r.code || '—') + '</b><span>Your code</span></div></div>');
-    $('#rc').onclick = function () { copy(link, this, 'Copy'); }; w.querySelectorAll('[data-u]').forEach(function (b) { b.onclick = function () { open(b.dataset.u, '_blank'); }; });
+    var r = S.user.referral || {}, link = r.link || '', code = r.code || '—', n = r.verifiedCount || 0, p = n % 5, left = 5 - p;
+    var tile = function (ic, label, attr) { return '<button class="shr" ' + attr + '><span>' + IC[ic] + '</span>' + label + '</button>'; };
+    var msg = 'Join me on CEASER AI! ' + link;
+    var w = page(main, '<a class="btn g back" href="/" style="text-decoration:none">' + IC.back + 'Home</a><h1>Referrals</h1><p class="sb">Every 5 friends who join and verify earns you a bonus token pack.</p>' +
+      '<div class="refhero"><small>YOUR CODE</small><div class="code" id="rcode">' + esc(code) + '</div><div class="lnk"><span id="rlink">' + esc(link.replace(/^https?:\/\//, '')) + '</span><button id="rc">' + IC.copy + 'Copy</button></div></div>' +
+      '<div class="shrs">' + tile('wa', 'WhatsApp', 'data-u="https://wa.me/?text=' + encodeURIComponent(msg) + '"') + tile('xx', 'X', 'data-u="https://twitter.com/intent/tweet?text=' + encodeURIComponent('Try CEASER AI ' + link) + '"') + tile('mail', 'Email', 'data-u="mailto:?subject=Try%20CEASER%20AI&body=' + encodeURIComponent(link) + '"') + tile('share', 'More', 'id="rsh"') + '</div>' +
+      '<div class="card"><div class="ph"><h3>Next reward</h3><span class="msg">' + p + ' / 5</span></div><div class="segs">' + [0, 1, 2, 3, 4].map(function (i) { return '<i class="' + (i < p ? 'f' : '') + '"></i>'; }).join('') + '</div><small style="color:var(--mu)">' + left + ' more verified ' + (left === 1 ? 'friend' : 'friends') + ' to unlock the next bonus.</small></div>' +
+      '<div class="stats3"><div class="st"><b>' + n + '</b><span>Verified</span></div><div class="st"><b>' + Math.floor(n / 5) + '</b><span>Rewards</span></div><div class="st"><b>' + Math.floor(n / 5) * 50 + 'K</b><span>Tokens earned</span></div></div>');
+    function cp(b) { copy(link, b, b.innerHTML); }
+    $('#rc').onclick = function () { var b = this, h = b.innerHTML; (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () { b.innerHTML = IC.ok + 'Copied'; setTimeout(function () { b.innerHTML = h; }, 1400); }, function () { toast('Press and hold the link to copy'); }); };
+    $('#rcode').onclick = function () { navigator.clipboard && navigator.clipboard.writeText(code).then(function () { toast('Code copied'); }); };
+    w.querySelectorAll('[data-u]').forEach(function (b) { b.onclick = function () { open(b.dataset.u, '_blank'); }; });
+    $('#rsh').onclick = function () { if (navigator.share) navigator.share({ title: 'CEASER AI', text: 'Join me on CEASER AI!', url: link }).catch(function () {}); else { navigator.clipboard && navigator.clipboard.writeText(link); toast('Link copied'); } };
   }
   function renderTeam(main) {
-    var u = S.user, w = page(main, '<h1>Team</h1><p class="sb">Shared workspaces are in development.</p><div class="card"><h3>Team workspaces</h3><p style="margin:0 0 12px;color:var(--mu)">Invite members, share conversations and manage roles in one place.</p><button class="btn" id="tn">Notify me when it’s ready</button></div><div class="card"><h3>Members</h3><div class="row" style="cursor:default"><div class="av">' + esc(u.name.charAt(0).toUpperCase()) + '</div><span><b>' + esc(u.name) + '</b><br><small>' + esc(u.email) + '</small></span><small>Owner</small></div></div>');
+    var u = S.user, w = page(main, '<a class="btn g back" href="/" style="text-decoration:none">' + IC.back + 'Home</a><h1>Team</h1><p class="sb">Shared workspaces are in development.</p>' +
+      '<div class="card"><h3>Team workspaces</h3><p style="margin:0 0 14px;color:var(--mu)">Invite members, share conversations and manage roles in one place.</p><button class="btn" id="tn">Notify me when it’s ready</button></div>' +
+      '<div class="card"><h3>Members</h3><div class="mem"><div class="av">' + esc(u.name.charAt(0).toUpperCase()) + '</div><div><b>' + esc(u.name) + '</b><small>' + esc(u.email) + '</small></div><span class="pill2">Owner</span></div></div>');
     $('#tn').onclick = function () { this.textContent = '🎉 You’ll be notified'; this.disabled = true; };
   }
   function renderSettings(main, tab) {
@@ -290,6 +311,18 @@
     $('#del').onclick = function () { if (!confirm('Permanently delete your account and all data?') || !confirm('Last chance — delete everything?')) return; api('DELETE', '/api/auth/me').then(function () { location.replace('/'); }).catch(function (e) { toast(e.message); }); };
   }
 
+  /* ---------- top-right menu ---------- */
+  function topMenu() {
+    var m = $('#tmenu'), b = $('#dots'); if (!m.hidden) { m.hidden = true; return; }
+    var it = function (ic, label, a, cls) { return '<button class="ti' + (cls ? ' ' + cls : '') + '" data-a="' + a + '">' + IC[ic] + '<span>' + label + '</span></button>'; };
+    m.innerHTML = '<div class="tu"><div class="av">' + esc(S.user.name.charAt(0).toUpperCase()) + '</div><div><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div></div>' +
+      it('home2', 'Home', 'home') + it('chat', 'New chat', 'new') + it('gift', 'Referrals', 'referrals') + it('set', 'Settings', 'settings') + '<div class="sep"></div>' + it('out', 'Sign out', 'out', 'red');
+    m.hidden = false; var r = b.getBoundingClientRect(); m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(10, innerWidth - r.right) + 'px'; m.style.left = 'auto'; m.style.bottom = 'auto';
+    m.onclick = function (e) { var x = e.target.closest('[data-a]'); if (!x) return; m.hidden = true; var a = x.dataset.a; if (a === 'home') location.href = '/'; else if (a === 'out') signOut(); else if (a === 'new') go('chat'); else go(a); };
+    setTimeout(function () { document.addEventListener('pointerdown', function h(e) { if (!m.contains(e.target) && !b.contains(e.target)) { m.hidden = true; } if (m.hidden || !m.contains(e.target)) document.removeEventListener('pointerdown', h); }); }, 0);
+  }
+  $('#dots').onclick = topMenu;
+
   /* ---------- live status chip ---------- */
   function ping() {
     var c = $('#live'); if (!c) return; var t0 = performance.now();
@@ -302,7 +335,7 @@
   $('#mb').onclick = function () { navOpen(!shell.classList.contains('nav-open')); };
   $('#scrim').onclick = function () { navOpen(false); };
   $('#nc').onclick = function () { go('chat'); var t = $('#ta'); if (t) t.focus(); };
-  addEventListener('keydown', function (e) { if (e.key === 'Escape') { navOpen(false); $('#pop').hidden = true; $('#sheet').hidden = true; } });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape') { navOpen(false); $('#pop').hidden = true; $('#tmenu').hidden = true; $('#sheet').hidden = true; } });
   (async function () {
     try { S.user = (await api('GET', '/api/auth/me')).user; } catch (e) { S.user = null; }
     if (!S.user) return location.replace('/login'); if (!S.user.emailVerified) return location.replace('/verify-email');

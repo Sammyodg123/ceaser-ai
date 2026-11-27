@@ -71,7 +71,7 @@
       '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
       (S.user && S.user.emailVerified ? '<div class="acct" id="acct"><button class="acct-b" id="acctb" aria-haspopup="true" aria-expanded="false"><span class="acct-av">' + esc(initial(S.user.name)) + '</span><span class="acct-n">' + esc(S.user.name) + '</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><div class="acct-m" id="acctm" hidden><div class="acct-i"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div><a href="/chat.html">Open chat</a><a href="/chat.html#dashboard">Dashboard</a><a href="/chat.html#settings">Settings</a><button id="acctso">Sign out</button></div></div>' : '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button>') + '</div></nav>' +
-      '<header class="hero"><div><div class="pill live-pill" id="lpill"><b></b><span>CEASER AI · Checking status…</span></div>' +
+      '<header class="hero"><div><div class="pill live-pill" id="lpill"><b></b><span class="lt">CEASER AI · Online and ready</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>' +
       '<h1>Your AI for <span class="type" id="ty"></span><br><span class="grad">built to ship.</span></h1>' +
       '<p class="lead">Chat, write, debug and build with an assistant that streams answers instantly, remembers your conversations and never gets in your way.</p>' +
       '<div class="cta"><button class="btn lg" id="su2">' + (S.user && S.user.emailVerified ? 'Open chat →' : 'Start free →') + '</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
@@ -110,12 +110,15 @@
       n.querySelector('#su').onclick = n.querySelector('#su2').onclick = function () { authModal('signup'); };
     }
     (function live() {
-      var p = n.querySelector('#lpill'); if (!p) return;
+      var p = n.querySelector('#lpill'); if (!p) return; var t = p.querySelector('.lt'), ms = null, ok = true, i = 0;
+      function msgs() { return ['CEASER AI · Online and ready', ms != null ? 'Live · ' + ms + ' ms' : 'Live · streaming', 'Replies stream instantly']; }
+      function show(txt) { t.classList.add('sw'); setTimeout(function () { t.textContent = txt; t.classList.remove('sw'); }, 300); }
       function chk() { if (!p.isConnected) return; var t0 = performance.now();
-        fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; p.classList.remove('off'); p.lastElementChild.textContent = 'CEASER AI · Live · ' + Math.round(performance.now() - t0) + ' ms'; })
-          .catch(function () { p.classList.add('off'); p.lastElementChild.textContent = 'CEASER AI · ' + (navigator.onLine ? 'Server unreachable' : 'You are offline'); });
-        setTimeout(chk, 20000); }
-      chk();
+        fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; ms = Math.round(performance.now() - t0); if (!ok) show(msgs()[0]); ok = true; p.classList.remove('off'); })
+          .catch(function () { ok = false; p.classList.add('off'); show(navigator.onLine ? 'Server unreachable' : 'You are offline'); });
+        setTimeout(chk, 15000); }
+      function rot() { if (!p.isConnected) return; if (ok) show(msgs()[++i % 3]); setTimeout(rot, 3200); }
+      chk(); setTimeout(rot, 3200);
     })();
     var nav = n.querySelector('.nav'), navmenu = n.querySelector('#navmenu');
     navmenu.onclick = function () { nav.classList.toggle('open'); navmenu.textContent = nav.classList.contains('open') ? '×' : '☰'; };
