@@ -71,6 +71,7 @@
     list.forEach(function (n, i) { n.style.transitionDelay = (i % 3) * 70 + 'ms'; io.observe(n); });
   };
 
+  FX.particles = particles;
   FX.init = function (root) {
     particles(); progress();
     if (!root) return;

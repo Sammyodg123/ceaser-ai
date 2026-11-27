@@ -45,7 +45,7 @@ html:after{background:radial-gradient(closest-side,rgba(30,170,230,.13),transpar
 .m.assistant .c{background:none!important;border:0!important;box-shadow:none!important;padding:0!important}
 .m.assistant{animation:czIn .5s var(--ease) both}.m.user{animation:czIn .4s var(--ease) both}
 @keyframes czIn{from{opacity:0;transform:translate3d(0,12px,0)}}
-.macts{display:flex;align-items:center;gap:2px;margin:6px 0 0;opacity:0;animation:czIn .5s .15s var(--ease) forwards}
+.macts{display:flex;align-items:center;gap:2px;margin:6px 0 0;animation:czIn .5s .1s var(--ease) both}
 .m.user .macts{justify-content:flex-end;padding-right:2px}
 .macts[hidden]{display:none}
 .ab{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:#8c96ab;background:transparent;border:0;padding:0;transition:color .2s,background .2s,transform .15s}
@@ -69,4 +69,22 @@ html:after{background:radial-gradient(closest-side,rgba(30,170,230,.13),transpar
 .mchip,.cbtn{color:#a3adc2;background:transparent}
 .send.m-mic{background:#eef2ff;color:#0a1020;box-shadow:none}
 .drawer{background:rgba(7,10,22,.86)!important}
-@media (prefers-reduced-motion:reduce){.m,.macts{animation:none!important;opacity:1}}
+@media (prefers-reduced-motion:reduce){.m,.macts,.think .sp:after{animation:none!important;opacity:1}}
+
+/* ===== v21.3 "Worked for 1s · 1 step" header like the template, landing-style glow ===== */
+#cz-fx{opacity:.4}
+.think{gap:12px!important;margin:0 0 10px!important;color:#9aa5bb;font-size:14.5px!important;font-weight:600}
+.think .tx{font-size:14.5px!important;letter-spacing:.005em}
+.think .sp{position:relative;width:44px!important;height:44px!important;border-radius:14px!important;background:linear-gradient(145deg,rgba(255,255,255,.1),rgba(255,255,255,.03))!important;border:1px solid rgba(190,211,255,.16)!important;box-shadow:0 10px 26px -14px rgba(70,160,240,.7),inset 0 1px rgba(255,255,255,.1)!important}
+.think .sp svg{display:none!important}
+.think .sp:before{content:"C";font:800 19px/1 Inter,system-ui;background:linear-gradient(135deg,#3fdcaa,#46a0f0 55%,#7d70e8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.think:not(.done) .sp:after{content:"";position:absolute;inset:-4px;border-radius:17px;border:1.5px solid rgba(63,220,170,.55);animation:czRing 1.6s ease-out infinite}
+@keyframes czRing{0%{transform:scale(.88);opacity:.9}100%{transform:scale(1.18);opacity:0}}
+.think .chv{opacity:.55;transition:transform .25s var(--ease)}
+.think:hover .chv{opacity:.9}
+.thbox{margin-left:21px!important;border-left:1px solid rgba(63,220,170,.28)!important}
+.stp i{box-shadow:0 0 8px #3fdcaa}
+/* answer text sits under the label, code and images stay full width */
+.m.assistant .body>p,.m.assistant .body>ul,.m.assistant .body>ol,.m.assistant .body>h1,.m.assistant .body>h2,.m.assistant .body>h3,.m.assistant .macts{margin-left:56px}
+.m.assistant .macts{margin-left:50px}
+@media (max-width:380px){.m.assistant .body>p,.m.assistant .body>ul,.m.assistant .body>ol,.m.assistant .body>h1,.m.assistant .body>h2,.m.assistant .body>h3{margin-left:0}.m.assistant .macts{margin-left:0}}
