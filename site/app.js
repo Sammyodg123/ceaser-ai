@@ -84,7 +84,17 @@
       feat('🔒', 'Private by default', 'Secure sessions, verified accounts and protected requests.') +
       feat('🎁', 'Refer and earn', 'Invite friends and unlock bonus tokens for every five who join.') +
       feat('📱', 'Made for mobile', 'Smooth, thumb-friendly layout that feels like a native app.') +
-      '</div></section><section class="sec" id="plans"><h2 class="rv">Simple <span class="grad">pricing</span></h2><p class="sub rv">Start free. Upgrade when you need more.</p><div class="grid" id="pl"></div></section>' +
+      '</div></section>' +
+      '<section class="sec" id="can"><h2 class="rv">What CEASER AI <span class="grad">can do</span></h2><p class="sub rv">One app that chats, codes, debugs, decodes and builds. Tap a skill and watch it work live.</p>' +
+      '<div class="tabs rv" id="skilltabs"><button class="on" data-k="0">💬 Chat</button><button data-k="1">🐞 Debug</button><button data-k="2">🔓 Decode</button><button data-k="3">🌐 Build</button><button data-k="4">🖼️ Screenshots</button></div>' +
+      '<div class="win rv" style="max-width:640px;margin:18px auto 0"><div class="bar"><i></i><i></i><i></i></div><div class="body" id="skilldemo" style="min-height:190px"></div></div>' +
+      '<ul class="caps rv"><li><b>Chat about anything</b> Ask questions, brainstorm, summarize, translate and write.</li><li><b>Write and explain code</b> Python, JavaScript, PHP, Bash, SQL, Java and more, with one-tap copy.</li><li><b>Debug errors</b> Paste a stack trace or broken code and get the cause and the fix.</li><li><b>Decode and convert</b> Base64, hex, URL encoding, JSON, regex, timestamps and unknown formats.</li><li><b>Build websites and apps</b> Landing pages, dashboards, WhatsApp, Telegram and Discord bots, with live preview.</li><li><b>Read screenshots</b> Send an image of an error or a design and get an answer about it.</li><li><b>Generate images</b> Describe it, get it.</li><li><b>Voice input</b> Talk instead of typing.</li></ul></section>' +
+      '<section class="sec" id="engines"><h2 class="rv">All the AI, <span class="grad">one place</span></h2><p class="sub rv">CEASER AI connects Claude, Gemini, Grok, NVIDIA, Groq, DeepSeek, Qwen, Llama and more, so you never juggle ten apps or ten subscriptions.</p>' +
+      '<div class="grid"><div class="card rv"><div class="ic">🛡️</div><h3>Auto · Censored</h3><p>The everyday lane. Auto sends each message to the best engine across NVIDIA, Grok, Gemini, Claude and the rest, and falls back to the next one if an engine is busy.</p></div>' +
+      '<div class="card rv"><div class="ic">🔥</div><h3>Auto · Uncensored</h3><p>A separate lane with its own Auto. It routes only through the uncensored engines, with straight, direct answers and no mixing with the censored ones.</p></div>' +
+      '<div class="card rv"><div class="ic">🎯</div><h3>Pick any engine</h3><p>Don’t want Auto? Choose a single engine yourself and stay on it for the whole chat.</p></div>' +
+      '<div class="card rv"><div class="ic">🔁</div><h3>Never stuck</h3><p>If one provider is down or rate limited, the next engine answers. You just keep chatting.</p></div></div></section>' +
+      '<section class="sec" id="plans"><h2 class="rv">Simple <span class="grad">pricing</span></h2><p class="sub rv">Start free. Upgrade when you need more.</p><div class="grid" id="pl"></div></section>' +
       '<section class="sec" id="how"><h2 class="rv">From idea to answer in <span class="grad">three steps</span></h2><p class="sub rv">No setup. No learning curve.</p><div class="steps">' +
       '<div class="step rv"><b>01</b><h3>Ask</h3><p>Type or paste anything: a question, a bug, a feature you want built.</p></div>' +
       '<div class="step rv"><b>02</b><h3>Watch it think</h3><p>Replies stream in live, with clean code blocks you can copy in one tap.</p></div>' +
@@ -126,6 +136,20 @@
     n.querySelector('#replay').onclick = function () { demoLoop(n.querySelector('#demo')); };
     reveal(n); typeLoop(n.querySelector('#ty')); demoLoop(n.querySelector('#demo'));
     renderPlans(n.querySelector('#pl'));
+    (function skills() {
+      var SK = [
+        [['Explain how a VPN works, simply', 'A VPN wraps your traffic in an encrypted tunnel to a server, so websites see the server’s address instead of yours.', '']],
+        [['Debug: ReferenceError: x is not defined', 'You used x before declaring it, or it lives in another scope. Declare it first:', 'let x = 0;\nconsole.log(x);']],
+        [['Decode: 48 65 6c 6c 6f', 'That is hexadecimal for ASCII text. It decodes to:', 'Hello']],
+        [['Build a landing page for my coffee shop', 'Done. Header, menu, map and an order button, ready to preview:', '<h1>Brew & Co</h1>\n<a href=\"#menu\">See menu</a>']],
+        [['[screenshot of a red error box]', 'The error says the port is already in use. Stop the other process or change the port:', 'PORT=3001 npm start']]
+      ], box = n.querySelector('#skilldemo'), tabs = n.querySelector('#skilltabs');
+      if (!box || !tabs) return;
+      function go(k) { tabs.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.k === String(k)); }); demoLoop(box, SK[k]); }
+      tabs.onclick = function (e) { var b = e.target.closest('button'); if (b) go(+b.dataset.k); };
+      var seen = false, io = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) { if (!seen && es[0].isIntersecting) { seen = true; io.disconnect(); go(0); } }) : null;
+      if (io) io.observe(box); else go(0);
+    })();
     fetch('/api/public/config').then(function (r) { return r.json(); }).then(function (c) { var seen = {}, names = [], box = n.querySelector('#engchips'); (c.models || []).forEach(function (m) { var g = m.group || m.label; if (m.id === 'auto' || seen[g]) return; seen[g] = 1; names.push(g); var b = document.createElement('button'); b.className = 'engchip'; b.textContent = g; b.onclick = function () { try { localStorage.setItem('cz_model', m.id); } catch (e) {} if (S.user && S.user.emailVerified) location.href = '/chat.html'; else authModal('signup'); }; if (box) box.appendChild(b); }); if (names.length) window.__eng = names; var a = n.querySelector('#cmail'); if (a && c.app && c.app.email) { a.textContent = c.app.email; a.href = 'mailto:' + c.app.email; } }).catch(function () {});
   }
   function feat(i, t, p) { return '<div class="card rv"><div class="ic">' + i + '</div><h3>' + t + '</h3><p>' + p + '</p></div>'; }
@@ -153,27 +177,30 @@
       ci += del ? -1 : 1; later(tick, del ? 45 : 95);
     })();
   }
-  function demoLoop(box) {
-    var script = [
+  function demoLoop(box, scr) {
+    var id = box._rid = (box._rid || 0) + 1, alive = function () { return box.isConnected && box._rid === id; };
+    var script = scr || [
       ['Write a function that reverses a string', 'Here you go:', 'function reverse(s) {\n  return [...s].reverse().join("");\n}'],
       ['Explain recursion in one line', 'A function that solves a problem by calling itself on a smaller piece until it hits a simple case.', ''],
-      ['Why is my code returning undefined?', 'Usually a missing return, or an async call you forgot to await. Paste it and I’ll find it.', '']
+      ['Why is my code returning undefined?', 'Usually a missing return, or an async call you forgot to await. Paste it and I’ll find it.', ''],
+      ['Decode this: SGVsbG8gQ0VBU0VS', 'That is Base64. Decoded it reads:', 'Hello CEASER'],
+      ['Debug: TypeError: cannot read properties of undefined', 'Something is undefined before you read it. Guard it first:', 'const name = user?.profile?.name ?? "guest";']
     ], si = 0;
     function run() {
-      if (!box.isConnected) return;
+      if (!alive()) return;
       box.replaceChildren(); var s = script[si++ % script.length];
       var u = el('<div class="b u"></div>'); box.appendChild(u);
       var i = 0; (function t1() {
-        if (!box.isConnected) return; u.textContent = s[0].slice(0, ++i);
+        if (!alive()) return; u.textContent = s[0].slice(0, ++i);
         if (i < s[0].length) return later(t1, 35);
         later(function () {
           var a = el('<div class="b a"><span class="dots"><i></i><i></i><i></i></span></div>'); box.appendChild(a);
           later(function () {
             a.innerHTML = '<span id="tt"></span>'; var tt = a.firstChild, j = 0, full = s[1];
             (function t2() {
-              if (!box.isConnected) return; tt.textContent = full.slice(0, ++j);
+              if (!alive()) return; tt.textContent = full.slice(0, ++j);
               if (j < full.length) return later(t2, 22);
-              if (s[2]) { var pre = el('<pre></pre>'); a.appendChild(pre); var k = 0; (function t3() { if (!box.isConnected) return; pre.textContent = s[2].slice(0, ++k); if (k < s[2].length) later(t3, 18); else later(run, 3200); })(); }
+              if (s[2]) { var pre = el('<pre></pre>'); a.appendChild(pre); var k = 0; (function t3() { if (!alive()) return; pre.textContent = s[2].slice(0, ++k); if (k < s[2].length) later(t3, 18); else later(run, 3200); })(); }
               else later(run, 3200);
             })();
           }, 800);

@@ -195,15 +195,15 @@ body:before{content:"";position:fixed;inset:-12%;z-index:-2;pointer-events:none;
   radial-gradient(52% 42% at 66% 92%,rgba(45,255,160,.5),transparent 70%),
   radial-gradient(40% 30% at 8% 70%,rgba(80,70,200,.45),transparent 70%),
   linear-gradient(180deg,#141a4a 0%,#0e2342 52%,#0a3a3a 100%);
-  animation:lbg 16s ease-in-out infinite alternate}
-@keyframes lbg{0%{transform:translate3d(-3%,-2%,0) scale(1)}100%{transform:translate3d(3%,3%,0) scale(1.1) rotate(3deg)}}
+  animation:lbg 24s ease-in-out infinite alternate;will-change:transform;transform:translateZ(0)}
+@keyframes lbg{0%{transform:translate3d(-3%,-2%,0) scale(1)}100%{transform:translate3d(3%,3%,0) scale(1.08)}}
 body:after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.7;background:
   linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/48px 48px,
   linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/48px 48px;
   -webkit-mask:radial-gradient(ellipse at 50% 30%,#000,transparent 75%);mask:radial-gradient(ellipse at 50% 30%,#000,transparent 75%)}
 .nav{background:rgba(14,18,48,.55)!important;border-bottom:1px solid rgba(255,255,255,.1)!important}
 .hero,.sec{position:relative}
-.card,.step,.win,.contact,.faq details{background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03))!important;border-color:rgba(255,255,255,.14)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.card,.step,.win,.contact,.faq details{background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03))!important;border-color:rgba(255,255,255,.14)!important;}
 .card:hover{border-color:rgba(45,255,160,.4)!important;transform:translateY(-4px)}
 .hero h1 .grad,h2 .grad{background:linear-gradient(90deg,#2dffa0,#19c3ff,#8b7bff,#2dffa0);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:lflow 6s linear infinite}
 @keyframes lflow{to{background-position:200% center}}
@@ -249,3 +249,10 @@ body:after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opac
 .vx.out .vx-wipe{animation:vxwipe .62s cubic-bezier(.7,0,.25,1) forwards}
 @keyframes vxwipe{to{clip-path:circle(150% at 50% 42%)}}
 @media (prefers-reduced-motion:reduce){.vx *,.vx{animation-duration:.01s!important;animation-delay:0s!important}}
+
+/* scroll + performance (fixes the landing page hanging) */
+html.page-scroll,html.page-scroll body{height:auto!important;min-height:100%;overflow-y:auto!important;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(14,18,48,.92)!important}
+.sec,.card,.step{content-visibility:auto;contain-intrinsic-size:1px 420px}
+@media (max-width:820px){body:before{animation:none!important}.win{animation:none!important}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important}}

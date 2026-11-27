@@ -11,6 +11,7 @@
   document.addEventListener('touchstart', function (e) { y0 = e.touches[0].clientY; }, { passive: true });
   document.addEventListener('touchmove', function (e) {
     if (e.touches.length > 1) { e.preventDefault(); return; }           // no pinch zoom
+    if (document.documentElement.classList.contains('page-scroll')) return; // landing page: let the browser scroll natively (this handler was what froze it)
     var t = e.target; if (t && t.closest && t.closest('textarea,input,[contenteditable]')) { var s0 = scroller(t); if (s0) return; }
     var s = scroller(t), dy = e.touches[0].clientY - y0;
     if (Math.abs(dy) < 10) return;                                      // finger jitter during a tap: never cancel it, or buttons stop clicking
@@ -19,6 +20,6 @@
     if ((top && dy > 0) || (bot && dy < 0)) e.preventDefault();         // at the edge: stop rubber-band / pull-to-refresh
   }, { passive: false });
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }); });
-  var last = 0; document.addEventListener('touchend', function (e) { var n = Date.now(); if (n - last < 300 && !(e.target.closest && e.target.closest('textarea,input,button,a,[role=button],.pop,.sheet,.tray'))) e.preventDefault(); last = n; }, { passive: false }); // no double-tap zoom
+  var last = 0; document.addEventListener('touchend', function (e) { if (document.documentElement.classList.contains('page-scroll')) return; var n = Date.now(); if (n - last < 300 && !(e.target.closest && e.target.closest('textarea,input,button,a,[role=button],.pop,.sheet,.tray'))) e.preventDefault(); last = n; }, { passive: false }); // no double-tap zoom
   document.addEventListener('contextmenu', function (e) { if (!(e.target.closest && e.target.closest('textarea,input,pre,code,.c'))) e.preventDefault(); });
 })();

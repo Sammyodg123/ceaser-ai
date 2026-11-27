@@ -140,7 +140,7 @@ let rr = 0;
 // blunt, but the application still keeps its normal refusal and abuse handling.
 function categoryOf(text, tone) {
   const t = String(text || '');
-  return tone === 'blunt' || /\b(uncensored|unfiltered|no filter|brutal(?:ly)? honest|roast|swear|curse|harsh|edgy)\b/i.test(t) ? 'uncensored' : 'censored';
+  return tone === 'blunt' ? 'uncensored' : 'censored'; // strictly the lane the person picked: Auto · Censored or Auto · Uncensored
 }
 function chainFor(kind, vision, category) {
   syncDynamic();
@@ -156,13 +156,9 @@ function chainFor(kind, vision, category) {
   }
   const out = [];
   const add = (p) => { if (ok(p) && out.indexOf(p) < 0) out.push(p); };
-  if (hasKey('omega')) {
-    const omegaIds = idsOf('omega').map((x) => x.toLowerCase());
-    const preferred = category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder'] : ['qwen3-coder', 'qwen', 'chatbot', 'claude'];
-    if (preferred.some((x) => omegaIds.includes(x))) add('omega');
-  }
+  pref = pref.filter((p) => p !== 'omega');
   pref.forEach(add);
-  keyed.filter((p) => p !== 'manus' || kind !== 'chat').forEach(add);
+  keyed.filter((p) => p !== 'omega' && (p !== 'manus' || kind !== 'chat')).forEach(add); // Censored Auto = NVIDIA, Grok, Gemini, Claude and the other keyed engines, never the uncensored ones
   add('custom'); add('pollinations'); // free AI is always the last resort
   return out;
 }
@@ -176,14 +172,18 @@ function plan(reqId, text, hasImage, tone) {
   }
   const kind = intent(text);
   const category = categoryOf(text, tone);
-  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen3-coder') : (idsOf(p)[0] || ''), cost: 1, label: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen3-coder') : PROVIDERS[p].label }));
+  if (category === 'uncensored' && hasKey('omega')) { // Uncensored Auto has its own lane: only the uncensored engines, rotated so one never gets drained
+    const ids = idsOf('omega').filter((x) => categoryForModel(x, 'omega') === 'uncensored');
+    if (ids.length) { const r = ids.map((x, i) => ids[(i + rr) % ids.length]); rr++; return { kind, category, auto: true, chain: r.map((x) => ({ provider: 'omega', model: x, cost: 1, label: x })) }; }
+  }
+  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: idsOf(p)[0] || '', cost: 1, label: PROVIDERS[p].label }));
   if (!chain.length) { const f = find(reqId); return f ? { kind, category, auto: true, chain: [{ provider: f.provider, model: f.id, cost: f.cost || 1, label: PROVIDERS[f.provider].label }] } : null; }
   return { kind, category, auto: true, chain };
 }
 const list = () => {
   const ap = autoProvider(); if (!ap) return [];
   const autoModel = idsOf(ap)[0] || '';
-  const auto = { id: 'auto', label: 'Auto', desc: 'Automatically classifies censored/direct style and picks the matching engine', provider: ap, cost: 1, model: autoModel };
+  const auto = { id: 'auto', label: 'Auto', desc: 'Auto · Censored routes NVIDIA, Grok, Gemini and the other keyed engines. Auto · Uncensored routes only the uncensored engines.', provider: ap, cost: 1, model: autoModel };
   const rest = all().filter((m) => hasKey(m.provider)); // every keyed engine stays visible, Auto is its own entry
   return [auto].concat(rest);
 };
