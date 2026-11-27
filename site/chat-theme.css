@@ -86,3 +86,9 @@ html:after{right:-75vmax;bottom:-85vmax;background:radial-gradient(closest-side,
 .bt-bar i{background:var(--grad)}
 
 @media (prefers-reduced-motion:reduce){html:before,html:after,.ms-live i{animation:none}.msgs .m:last-child{animation:none}}
+
+/* mobile hardening: 16px inputs stop iOS from zooming the page on focus; wide content scrolls inside itself */
+.comp textarea,.page input,.page textarea,.in2,.tbox textarea{font-size:16px!important}
+.m .c img,.m .c video,.m .c canvas{max-width:100%;height:auto}
+.m .c table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.m .c a{overflow-wrap:anywhere}

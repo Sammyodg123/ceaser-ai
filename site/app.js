@@ -48,18 +48,8 @@
   }
   function initial(n) { return (n || '?').trim().charAt(0).toUpperCase(); }
 
-  /* ---------- background fx ---------- */
-  (function () {
-    if (matchMedia('(pointer:coarse)').matches) return; // phones: no full-screen grid/glow layers (they made scrolling hang)
-    var bg = el('<div class="gridbg"></div>'), gl = el('<div id="glow"></div>');
-    document.body.prepend(gl); document.body.prepend(bg);
-    addEventListener('pointermove', function (e) { gl.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)'; }, { passive: true });
-  })();
-
-  function reveal(root) {
-    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: .12 });
-    root.querySelectorAll('.rv').forEach(function (n, i) { n.style.transitionDelay = (i % 4) * 80 + 'ms'; io.observe(n); });
-  }
+  /* ---------- static reveal: nothing slides or fades in, content is simply there ---------- */
+  function reveal(root) { root.querySelectorAll('.rv').forEach(function (n) { n.classList.add('in'); }); }
 
   /* ---------- landing ---------- */
   var timers = [];
@@ -122,18 +112,16 @@
       n.querySelector('#su').onclick = n.querySelector('#su2').onclick = function () { authModal('signup'); };
     }
     (function live() {
-      var p = n.querySelector('#lpill'); if (!p) return; var t = p.querySelector('.lt'), ms = null, ok = true, i = 0;
-      function msgs() { return ['CEASER AI · Online and ready', ms != null ? 'Live · ' + ms + ' ms' : 'Live · streaming', 'Replies stream instantly']; }
-      function show(txt) { t.classList.add('sw'); setTimeout(function () { t.textContent = txt; t.classList.remove('sw'); }, 300); }
+      var p = n.querySelector('#lpill'); if (!p) return; var t = p.querySelector('.lt');
       function chk() { if (!p.isConnected) return; var t0 = performance.now();
-        fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; ms = Math.round(performance.now() - t0); if (!ok) show(msgs()[0]); ok = true; p.classList.remove('off'); })
-          .catch(function () { ok = false; p.classList.add('off'); show(navigator.onLine ? 'Server unreachable' : 'You are offline'); });
-        setTimeout(chk, 15000); }
-      function rot() { if (!p.isConnected) return; if (ok) show(msgs()[++i % 3]); setTimeout(rot, 3200); }
-      chk(); setTimeout(rot, 3200);
+        fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; var ms = Math.round(performance.now() - t0); p.classList.remove('off'); t.textContent = 'Online · ' + ms + ' ms'; })
+          .catch(function () { p.classList.add('off'); t.textContent = navigator.onLine ? 'Server unreachable' : 'You are offline'; });
+        later(chk, 30000); }
+      chk();
     })();
     var nav = n.querySelector('.nav'), navmenu = n.querySelector('#navmenu');
-    navmenu.onclick = function () { nav.classList.toggle('open'); navmenu.textContent = nav.classList.contains('open') ? '×' : '☰'; };
+    navmenu.setAttribute('aria-expanded', 'false'); navmenu.onclick = function (e) { e.stopPropagation(); nav.classList.toggle('open'); navmenu.textContent = nav.classList.contains('open') ? '×' : '☰'; navmenu.setAttribute('aria-expanded', String(nav.classList.contains('open'))); };
+    document.addEventListener('click', function h(e) { if (!nav.isConnected) return document.removeEventListener('click', h); if (nav.classList.contains('open') && !nav.contains(e.target)) { nav.classList.remove('open'); navmenu.textContent = '☰'; navmenu.setAttribute('aria-expanded', 'false'); } });
     n.querySelectorAll('.navlinks a').forEach(function (a) { a.onclick = function () { nav.classList.remove('open'); navmenu.textContent = '☰'; }; });
     n.querySelector('#replay').onclick = function () { demoLoop(n.querySelector('#demo')); };
     reveal(n); typeLoop(n.querySelector('#ty')); demoLoop(n.querySelector('#demo'));
@@ -149,8 +137,7 @@
       if (!box || !tabs) return;
       function go(k) { tabs.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.k === String(k)); }); demoLoop(box, SK[k]); }
       tabs.onclick = function (e) { var b = e.target.closest('button'); if (b) go(+b.dataset.k); };
-      var seen = false, io = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) { if (!seen && es[0].isIntersecting) { seen = true; io.disconnect(); go(0); } }) : null;
-      if (io) io.observe(box); else go(0);
+      go(0);
     })();
     fetch('/api/public/config').then(function (r) { return r.json(); }).then(function (c) { var seen = {}, names = [], box = n.querySelector('#engchips'); (c.models || []).forEach(function (m) { var g = m.group || m.label; if (m.id === 'auto' || seen[g]) return; seen[g] = 1; names.push(g); var b = document.createElement('button'); b.className = 'engchip'; b.textContent = g; b.onclick = function () { try { localStorage.setItem('cz_model', m.id); } catch (e) {} if (S.user && S.user.emailVerified) location.href = '/chat.html'; else authModal('signup'); }; if (box) box.appendChild(b); }); if (names.length) window.__eng = names; var a = n.querySelector('#cmail'); if (a && c.app && c.app.email) { a.textContent = c.app.email; a.href = 'mailto:' + c.app.email; } }).catch(function () {});
   }
@@ -168,48 +155,22 @@
     });
     reveal(box);
   }
-  function typeLoop(node) {
-    var wi = 0, ci = 0, del = false;
-    (function tick() {
-      if (!node.isConnected) return;
-      var words = window.__eng && window.__eng.length ? window.__eng : ['Claude', 'Gemini', 'Groq', 'NVIDIA', 'Venice AI'];
-      if (wi >= words.length) wi = 0; var w = words[wi]; node.textContent = w.slice(0, ci);
-      if (!del && ci === w.length) { del = true; return later(tick, 1400); }
-      if (del && ci === 0) { del = false; wi = (wi + 1) % words.length; }
-      ci += del ? -1 : 1; later(tick, del ? 45 : 95);
-    })();
-  }
+  function typeLoop() { /* removed: the typing caret changed the hero width on every tick */ }
+  var DEMO = [
+    ['Write a function that reverses a string', 'Here you go:', 'function reverse(s) {\n  return [...s].reverse().join(\"\");\n}'],
+    ['Explain recursion in one line', 'A function that solves a problem by calling itself on a smaller piece until it hits a simple case.', ''],
+    ['Why is my code returning undefined?', 'Usually a missing return, or an async call you forgot to await. Paste it and I’ll find it.', ''],
+    ['Decode this: SGVsbG8gQ0VBU0VS', 'That is Base64. Decoded it reads:', 'Hello CEASER'],
+    ['Debug: TypeError: cannot read properties of undefined', 'Something is undefined before you read it. Guard it first:', 'const name = user?.profile?.name ?? \"guest\";']
+  ];
   function demoLoop(box, scr) {
-    var id = box._rid = (box._rid || 0) + 1, alive = function () { return box.isConnected && box._rid === id; };
-    var script = scr || [
-      ['Write a function that reverses a string', 'Here you go:', 'function reverse(s) {\n  return [...s].reverse().join("");\n}'],
-      ['Explain recursion in one line', 'A function that solves a problem by calling itself on a smaller piece until it hits a simple case.', ''],
-      ['Why is my code returning undefined?', 'Usually a missing return, or an async call you forgot to await. Paste it and I’ll find it.', ''],
-      ['Decode this: SGVsbG8gQ0VBU0VS', 'That is Base64. Decoded it reads:', 'Hello CEASER'],
-      ['Debug: TypeError: cannot read properties of undefined', 'Something is undefined before you read it. Guard it first:', 'const name = user?.profile?.name ?? "guest";']
-    ], si = 0;
-    function run() {
-      if (!alive()) return;
-      box.replaceChildren(); var s = script[si++ % script.length];
-      var u = el('<div class="b u"></div>'); box.appendChild(u);
-      var i = 0; (function t1() {
-        if (!alive()) return; u.textContent = s[0].slice(0, ++i);
-        if (i < s[0].length) return later(t1, 35);
-        later(function () {
-          var a = el('<div class="b a"><span class="dots"><i></i><i></i><i></i></span></div>'); box.appendChild(a);
-          later(function () {
-            a.innerHTML = '<span id="tt"></span>'; var tt = a.firstChild, j = 0, full = s[1];
-            (function t2() {
-              if (!alive()) return; tt.textContent = full.slice(0, ++j);
-              if (j < full.length) return later(t2, 22);
-              if (s[2]) { var pre = el('<pre></pre>'); a.appendChild(pre); var k = 0; (function t3() { if (!alive()) return; pre.textContent = s[2].slice(0, ++k); if (k < s[2].length) later(t3, 18); else later(run, 3200); })(); }
-              else later(run, 3200);
-            })();
-          }, 800);
-        }, 400);
-      })();
-    }
-    run();
+    var s;
+    if (scr) s = scr[0]; else { box._i = ((box._i == null ? -1 : box._i) + 1) % DEMO.length; s = DEMO[box._i]; }
+    var frag = document.createDocumentFragment();
+    var u = el('<div class="b u"></div>'); u.textContent = s[0]; frag.appendChild(u);
+    var a = el('<div class="b a"></div>'); a.appendChild(document.createTextNode(s[1]));
+    if (s[2]) { var pre = el('<pre></pre>'); pre.textContent = s[2]; a.appendChild(pre); }
+    frag.appendChild(a); box.replaceChildren(frag);
   }
 
   /* ---------- auth modal (neon ring) ---------- */
@@ -490,7 +451,7 @@
   var startupAt = performance.now();
   function finishStartup() {
     var screen = document.getElementById('boot-screen'), progress = document.getElementById('btp') || document.getElementById('boot-progress'), bar = screen && screen.querySelector('.boot-track i');
-    var MIN = 3000, t0 = startupAt, done = false;
+    var MIN = 900, t0 = startupAt, done = false;
     function frame(now) {
       var t = Math.min(1, (now - t0) / MIN), p = 1 - Math.pow(1 - t, 2.2);
       if (progress) progress.textContent = Math.round(p * 100) + '%';

@@ -1,5 +1,6 @@
 /* CEASER AI — native-app feel. The page itself never moves; only inner scrollers scroll, and they never hand the gesture to the page. */
 (function () {
+  if (document.documentElement.classList.contains('page-scroll')) return; // landing page: native scrolling only, zero touch listeners
   var y0 = 0;
   function scroller(el) { // nearest ancestor that can really scroll vertically
     for (; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
