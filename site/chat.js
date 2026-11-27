@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
-  var S = { user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], bal: null };
+  var S = { user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], imgs: [], bal: null };
   var IC = {
     menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>',
     home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg>',
@@ -39,7 +39,10 @@
     ext: '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
     full: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
     dl: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
-    tag: '<svg viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.2"/></svg>'
+    tag: '<svg viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.2"/></svg>',
+    stop: '<svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" style="fill:currentColor;stroke:none"/></svg>',
+    pen: '<svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    img: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 9"/></svg>'
   };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function el(h) { var t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstChild; }
@@ -68,6 +71,8 @@
     // keywords outside calls
     return out.replace(/(^|[^\w>-])(function|const|let|var|return|if|else|for|while|class|import|from|export|default|async|await|try|catch|new|def|elif|self|None|True|False|print|public|private|static|void|int|string|fn|struct|use|pub|package|func|echo|throw|typeof|extends|SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|TABLE|JOIN)(?![\w])(?![^<]*<\/span>)/g, '$1<span class="tk-k">$2</span>');
   }
+  var HLC = {}, HLN = 0;
+  function hlc(code) { if (code.length > 12000) return esc(code); var h = HLC[code]; if (h === undefined) { if (++HLN > 60) { HLC = {}; HLN = 1; } h = HLC[code] = hl(code); } return h; }
   function md(src, live) {
     var parts = String(src).split(/```/), out = '';
     parts.forEach(function (p, i) {
@@ -78,17 +83,19 @@
         if (fn && !/\.[A-Za-z0-9]{1,8}$/.test(fn)) fn = '';
         var html5 = lang === 'html' || lang === 'htm' || /^\s*<!doctype html|^\s*<html/i.test(code);
         if (!fn) fn = html5 ? 'index.html' : (lang && EXT[lang]) ? 'file.' + EXT[lang] : '';
-        var n = code ? code.split('\n').length : 0, prev = html5 && !open && code.length > 40;
+        var n = code ? code.split('\n').length : 0, prev = html5 && !open && !live && code.length > 40;
         out += '<div class="cb' + (open ? ' wr' : '') + (prev ? ' hp' : '') + '" data-name="' + esc(fn || 'code.txt') + '"><div class="h"><span class="fi">' + esc((fn.split('.').pop() || lang || 'txt').slice(0, 4)) + '</span><span class="lg">' + esc(fn || lang || 'code') + '</span>' +
           (open ? '<span class="wt"><b></b>writing…</span>' : (prev ? '<span class="tb"><button data-tab="pv" class="on">Preview</button><button data-tab="cd">Code</button></span>' : '<span class="ln">' + n + ' line' + (n === 1 ? '' : 's') + '</span>')) +
           (open ? '' : '<button class="ic" data-dl aria-label="Download" title="Download">' + IC.dl + '</button>') + '<button class="ic" data-copy aria-label="Copy" title="Copy">' + IC.copy + '</button></div>' +
-          (prev ? '<div class="pv"><div class="pb"><span class="d3"><i></i><i></i><i></i></span><span class="pu">' + esc(fn) + '</span><button data-reload aria-label="Reload" title="Reload">' + IC.reload + '</button><button data-newtab aria-label="Open in new tab" title="Open as app in new tab">' + IC.ext + '</button><button data-full aria-label="Full screen" title="Full screen">' + IC.full + '</button></div><div class="vp"><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" loading="lazy" data-pv></iframe></div></div>' : '') +
-          '<pre' + (prev ? ' hidden' : '') + '><code>' + hl(code) + (open ? '<span class="caret"></span>' : '') + '</code></pre></div>';
+          (prev ? '<div class="pv"><div class="pb"><span class="d3"><i></i><i></i><i></i></span><span class="pu">' + esc(fn) + '</span><button data-reload aria-label="Reload" title="Reload">' + IC.reload + '</button><button data-newtab aria-label="Open in new tab" title="Open as app in new tab">' + IC.ext + '</button><button data-full aria-label="Full screen" title="Full screen">' + IC.full + '</button></div><div class="vp"><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" data-pv title="Preview"></iframe><div class="pvl"><span></span><em>Loading preview…</em></div></div></div>' : '') +
+          '<pre' + (prev ? ' hidden' : '') + '><code>' + (open ? esc(code) : hlc(code)) + (open ? '<span class="caret"></span>' : '') + '</code></pre></div>';
         return;
       }
       var html = '', list = null, para = [];
       var fp = function () { if (para.length) { html += '<p>' + inline(para.join('<br>')) + '</p>'; para = []; } }, fl = function () { if (list) { html += '</' + list + '>'; list = null; } };
       esc(p).split('\n').forEach(function (ln) {
+        var gm = ln.match(/^!\[([^\]]*)\]\(((?:\/api\/chat\/img\/|data:image\/)[^)\s]+)\)\s*$/);
+        if (gm) { fp(); fl(); html += '<div class="imgw"><img class="imgout" src="' + gm[2] + '" alt="' + gm[1] + '"><a class="imgdl" href="' + gm[2] + '" download="ceaser-image.png" aria-label="Download image">' + IC.dl + '</a></div>'; return; }
         var h = ln.match(/^(#{1,3})\s+(.*)$/), ul = ln.match(/^\s*[-*]\s+(.*)$/), ol = ln.match(/^\s*\d+[.)]\s+(.*)$/);
         if (h) { fp(); fl(); html += '<h' + h[1].length + '>' + inline(h[2]) + '</h' + h[1].length + '>'; }
         else if (ul || ol) { fp(); var t = ul ? 'ul' : 'ol'; if (list !== t) { fl(); html += '<' + t + '>'; list = t; } html += '<li>' + inline((ul || ol)[1]) + '</li>'; }
@@ -101,8 +108,8 @@
   function splitFiles(t) { var f = []; var txt = String(t || '').replace(FRE, function (_, n, b) { f.push({ name: n, size: b.length }); return ''; }).trim(); return { text: txt, files: f }; }
   function chipHTML(f) { var ext = (f.name.split('.').pop() || 'file').slice(0, 4).toUpperCase(); return '<div class="fchip"><i>' + esc(ext) + '</i><span><b>' + esc(f.name) + '</b><small>' + (f.size >= 1000 ? (f.size / 1000).toFixed(1) + 'K' : f.size) + ' chars</small></span></div>'; }
   function copy(t, b, label) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = label; }, 1400); }, function () { toast('Press and hold to copy'); }); }
-  function stream(url, body, onDelta) {
-    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf(), accept: 'text/event-stream' }, body: JSON.stringify(body) }).then(async function (r) {
+  function stream(url, body, onDelta, onThink, onStep, signal) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', signal: signal, headers: { 'content-type': 'application/json', 'x-csrf-token': csrf(), accept: 'text/event-stream' }, body: JSON.stringify(body) }).then(async function (r) {
       if (!r.ok) { var t = await r.text(), d = {}; try { d = JSON.parse(t); } catch (e) {} throw new Error((d.error && d.error.message) || 'Request failed (' + r.status + ')'); }
       var rd = r.body.getReader(), dec = new TextDecoder(), buf = '';
       for (;;) {
@@ -110,7 +117,7 @@
         var i; while ((i = buf.indexOf('\n\n')) >= 0) {
           var blk = buf.slice(0, i); buf = buf.slice(i + 2);
           var ev = (blk.match(/^event: (.*)$/m) || [])[1], dl = (blk.match(/^data: (.*)$/m) || [])[1]; if (!dl) continue;
-          var d2 = JSON.parse(dl); if (ev === 'delta') onDelta(d2.text); else if (ev === 'error') toast(d2.message);
+          var d2 = JSON.parse(dl); if (ev === 'delta') onDelta(d2.text); else if (ev === 'thinking') { if (onThink) onThink(d2.text); } else if (ev === 'step') { if (onStep) onStep(d2.text); } else if (ev === 'error') toast(d2.message);
         }
       }
     });
@@ -156,13 +163,13 @@
   function fmtK(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString(); }
   async function loadBal() { try { S.bal = (await api('GET', '/api/tokens')).balance || null; renderTk(); } catch (e) {} }
   async function loadConvs() { try { S.convs = (await api('GET', '/api/chat/conversations')).conversations || []; renderHist(); } catch (e) {} }
-  async function openConv(id) { try { var r = await api('GET', '/api/chat/conversations/' + id); S.cur = id; S.msgs = r.messages; go('chat', true); if (innerWidth < 960) navOpen(false); } catch (e) { toast(e.message); } }
+  async function openConv(id) { try { var r = await api('GET', '/api/chat/conversations/' + id); S.cur = id; S.msgs = (r.messages || []).filter(function (m) { return m.role !== 'assistant' || m.content; }); go('chat', true); if (innerWidth < 960) navOpen(false); } catch (e) { toast(e.message); } }
 
   function go(p, keep) {
     if (p === 'chat' && !keep) { S.cur = null; S.msgs = []; }
     S.page = p; if (location.hash !== '#' + p) history.replaceState(null, '', '#' + p);
     var main = $('#main'), t = { chat: 'CEASER AI', templates: 'AI Templates', dashboard: 'Dashboard', plan: 'Plan & usage', referrals: 'Referrals', team: 'Team', settings: 'Settings' };
-    $('#ttl').textContent = t[p] || 'CEASER AI';
+    var tt = $('#ttl'); if (p === 'chat') tt.innerHTML = '<i class="mk">C</i><span class="wm">CEASER <b>AI</b></span>'; else tt.textContent = t[p] || 'CEASER AI';
     ({ chat: renderChat, templates: renderTemplates, dashboard: renderDash, plan: function (m) { renderSettings(m, 'billing'); }, referrals: renderRef, team: renderTeam, settings: renderSettings })[p](main);
     main.firstElementChild && main.firstElementChild.classList.add('fadein');
     buildDrawer(); if (innerWidth < 960) navOpen(false);
@@ -173,26 +180,42 @@
   function modelLabel() { var m = S.models.find(function (x) { return x.id === S.model; }) || S.models[0]; return m ? m.label : 'No model'; }
   function renderChat(main) {
     main.innerHTML = '<div class="msgs" id="msgs"><div class="in" id="inner"></div></div>' +
-      '<div class="dock"><div class="comp"><div class="files" id="files"></div><textarea id="ta" rows="1" placeholder="Message CEASER AI…"></textarea>' +
-      '<div class="crow"><button class="cbtn" id="att" aria-label="Upload file" title="Upload file">' + IC.clip + '</button><button class="cbtn" id="mic" aria-label="Voice input" title="Voice input">' + IC.mic + '</button><button class="mchip" id="mchip">' + IC.cpu.replace('<svg', '<svg width="14" height="14"') + '<span id="ml">' + esc(modelLabel()) + '</span>' + IC.chev + '</button><span class="sp"></span><button class="send" id="send" aria-label="Send">' + IC.up + '</button></div></div>' +
+      '<div class="dock"><div class="comp"><div class="files" id="files"></div><textarea id="ta" rows="1" placeholder="Message CEASER AI…" enterkeyhint="send"></textarea>' +
+      '<div class="crow"><button class="cbtn" id="att" aria-label="Attach" title="Attach">' + IC.clip + '</button><button class="mchip" id="mchip">' + IC.cpu.replace('<svg', '<svg width="15" height="15"') + '<span id="ml">' + esc(modelLabel()) + '</span>' + IC.chev + '</button>' +
+      '<button class="imode" id="imode" hidden>' + IC.img.replace('<svg', '<svg width="14" height="14"') + 'Image' + IC.x.replace('<svg', '<svg width="12" height="12"') + '</button><span class="sp"></span><button class="send m-mic" id="send" data-m="mic" aria-label="Voice input">' + IC.mic + '</button></div></div>' +
       '<p class="hint">CEASER AI can make mistakes. Verify important information.</p></div>';
     var ta = $('#ta');
-    ta.oninput = function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 170) + 'px'; };
+    ta.oninput = function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; syncSend(); };
     ta.onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey && innerWidth > 760) { e.preventDefault(); send(); } };
-    $('#send').onclick = function () { send(); };
-    $('#att').onclick = pickFile; $('#mchip').onclick = modelSheet; $('#mic').onclick = dictate;
+    $('#send').onclick = function () { if (S.busy) return stopGen(); if (hasInput()) send(); else dictate(); };
+    $('#att').onclick = function () { plusMenu(this); }; $('#mchip').onclick = modelSheet;
+    $('#imode').onclick = function () { setImode(false); };
     $('#inner').onclick = blockClick;
-    drawMsgs(); drawFiles();
+    drawMsgs(); drawFiles(); setImode(S.imode, true); syncSend();
+  }
+  function hasInput() { var ta = $('#ta'); return !!((ta && ta.value.trim()) || S.files.length || S.imgs.length); }
+  function syncSend() {
+    var b = $('#send'); if (!b) return; var m = S.busy ? 'stop' : hasInput() ? 'up' : 'mic';
+    if (b.dataset.m !== m) { b.dataset.m = m; b.className = 'send m-' + m + (rec ? ' rec' : ''); b.innerHTML = IC[m === 'up' ? 'up' : m === 'stop' ? 'stop' : 'mic']; b.setAttribute('aria-label', m === 'up' ? 'Send' : m === 'stop' ? 'Stop' : 'Voice input'); }
+  }
+  function stopGen() { if (S.ac) S.ac.abort(); }
+  function setImode(on, quiet) {
+    S.imode = !!on; var c = $('#imode'), ta = $('#ta'); if (c) c.hidden = !S.imode; if (ta) ta.placeholder = S.imode ? 'Describe the image you want…' : 'Message CEASER AI…';
+    if (!quiet && S.imode && ta) ta.focus();
   }
   /* previews are served by the backend with a sandbox CSP (own opaque origin), so generated pages can run scripts safely */
   function previewURL(code) { return api('POST', '/api/chat/preview', { html: code }).then(function (r) { return '/api/chat/preview/' + r.id; }); }
   function mountPreviews(root) {
     if (!root) return; root.querySelectorAll('iframe[data-pv]').forEach(function (f) {
-      if (f.dataset.mt) return; f.dataset.mt = 1; var code = f.closest('.cb').querySelector('code').textContent;
-      previewURL(code).then(function (u) { f.src = u; }).catch(function () { var cb = f.closest('.cb'); if (cb) { cb.querySelector('.pv').hidden = true; cb.querySelector('pre').hidden = false; } });
+      if (f.dataset.mt) return; f.dataset.mt = 1; var cb = f.closest('.cb'), code = cb.querySelector('code').textContent, ld = cb.querySelector('.pvl');
+      f.onload = function () { if (f.getAttribute('src') && ld && ld.parentNode) ld.remove(); };
+      previewURL(code).then(function (u) { f.src = u; setTimeout(function () { var e = ld && ld.parentNode && ld.querySelector('em'); if (e) e.textContent = 'Still loading… tap the open-in-tab button'; }, 9000); })
+        .catch(function () { cb.querySelector('.pv').hidden = true; cb.querySelector('pre').hidden = false; });
     });
   }
+  function lightbox(src) { var o = el('<div class="fs lb"><img alt="" src="' + esc(src) + '"><button class="fx" aria-label="Close">' + IC.x + '</button></div>'); o.onclick = function () { o.remove(); }; document.body.appendChild(o); }
   function blockClick(e) {
+    var gi = e.target.closest('img.imgout'); if (gi) return lightbox(gi.src);
     var cb = e.target.closest('.cb'); if (!cb) return;
     var code = function () { return cb.querySelector('code').textContent; }, b;
     if ((b = e.target.closest('[data-copy]'))) { var h0 = b.innerHTML; (navigator.clipboard ? navigator.clipboard.writeText(code()) : Promise.reject()).then(function () { b.innerHTML = IC.ok; b.classList.add('okc'); setTimeout(function () { b.innerHTML = h0; b.classList.remove('okc'); }, 1400); }, function () { toast('Press and hold the code to copy'); }); return; }
@@ -217,35 +240,63 @@
   function msgNode(m) {
     var n = el('<div class="m ' + m.role + '"><div class="c"></div></div>'), c = n.querySelector('.c');
     if (m.role === 'user') {
-      var sp = splitFiles(m.content); c.innerHTML = (sp.files.length ? '<div class="fchips">' + sp.files.map(chipHTML).join('') + '</div>' : '') + (sp.text ? '<div class="ut"></div>' : ''); var ut = c.querySelector('.ut'); if (ut) ut.textContent = sp.text; if (!sp.files.length && !sp.text) c.textContent = m.content;
-    } else c.innerHTML = (m.content ? '' : '<div class="think"><span class="sp">' + IC.tpl + '</span><span class="tx">Thinking…</span></div>') + '<div class="body">' + (m.content ? md(m.content) : '') + '</div>';
+      var imr = /\n*<<<IMAGE ([^\n>]*)>>>\n([\s\S]*?)\n<<<ENDIMAGE>>>/g, imgs = (m._imgs || []).map(function (x) { return x.dataUrl; });
+      var rest = String(m.content || '').replace(imr, function (_, name, du) { imgs.push(du); return ''; });
+      var sp = splitFiles(rest);
+      c.innerHTML = (imgs.length ? '<div class="fchips">' + imgs.map(function (u) { return '<img src="' + u + '" alt="" style="max-width:160px;max-height:160px;border-radius:12px;margin:0 6px 6px 0">'; }).join('') + '</div>' : '') +
+        (sp.files.length ? '<div class="fchips">' + sp.files.map(chipHTML).join('') + '</div>' : '') + (sp.text ? '<div class="ut"></div>' : '');
+      var ut = c.querySelector('.ut'); if (ut) ut.textContent = sp.text; if (!sp.files.length && !sp.text && !imgs.length) c.textContent = m.content;
+    } else if (m._gen) c.innerHTML = '<div class="body"><div class="imggen"><span class="shim"></span><em>Creating your image…</em></div></div>';
+    else c.innerHTML = (m.content ? '' : '<div class="think open"><span class="sp">' + IC.tpl + '</span><span class="tx">Thinking…</span><span class="chv">' + IC.chev + '</span></div><div class="thbox show live"><div class="thin"></div></div>') + '<div class="body">' + (m.content ? md(m.content) : '') + '</div>';
     return n;
   }
   function plusMenu(btn) {
     var p = $('#pop'), r = btn.getBoundingClientRect();
-    p.innerHTML = '<button data-a="up">' + IC.clip + '<div>Upload file<small>Text, code, CSV, JSON…</small></div></button><button data-a="mic">' + IC.mic + '<div>Choose audio<small>Dictate with your voice</small></div></button><button data-a="model">' + IC.cpu + '<div>Choose model<small>' + esc(modelLabel()) + '</small></div></button>';
-    p.hidden = false; p.style.left = Math.max(10, Math.min(r.left, innerWidth - 250)) + 'px'; p.style.bottom = (innerHeight - r.top + 8) + 'px'; p.style.top = 'auto';
-    p.onclick = function (e) { var b = e.target.closest('[data-a]'); if (!b) return; p.hidden = true; var a = b.dataset.a; if (a === 'up') pickFile(); else if (a === 'mic') dictate(); else modelSheet(); };
+    p.innerHTML = '<button data-a="up">' + IC.clip + '<div>Upload file or photo<small>Code, text, CSV, screenshots…</small></div></button><button data-a="genimg">' + IC.img + '<div>' + (S.imode ? 'Back to chat' : 'Create an image') + '<small>' + (S.imode ? 'Turn image mode off' : 'Describe it, get a picture') + '</small></div></button>';
+    p.hidden = false; p.style.left = Math.max(10, Math.min(r.left, innerWidth - 260)) + 'px'; p.style.bottom = (innerHeight - r.top + 8) + 'px'; p.style.top = 'auto'; p.style.right = 'auto';
+    p.onclick = function (e) { var b = e.target.closest('[data-a]'); if (!b) return; p.hidden = true; if (b.dataset.a === 'up') pickFile(); else setImode(!S.imode); };
     setTimeout(function () { document.addEventListener('pointerdown', function h(e) { if (!p.contains(e.target)) { p.hidden = true; document.removeEventListener('pointerdown', h); } }); }, 0);
   }
+  function isImg(f) { return /^image\//.test(f.type) || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(f.name); }
+  function shrink(f, cb) {
+    var u = URL.createObjectURL(f), im = new Image();
+    im.onload = function () { var m = 1400, k = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); cb(c.toDataURL('image/jpeg', 0.86)); };
+    im.onerror = function () { URL.revokeObjectURL(u); var r = new FileReader(); r.onload = function () { cb(String(r.result)); }; r.readAsDataURL(f); };
+    im.src = u;
+  }
   function pickFile() {
-    var i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.txt,.md,.csv,.json,.js,.jsx,.ts,.tsx,.py,.html,.css,.java,.c,.cpp,.go,.rs,.php,.rb,.sh,.sql,.xml,.yml,.yaml,.log,.env,.ini,.toml,text/*';
-    i.onchange = function () { Array.from(i.files).slice(0, 4).forEach(function (f) { if (f.size > 400000) return toast(f.name + ' is too large (max 400 KB).'); var r = new FileReader(); r.onload = function () { S.files.push({ name: f.name, text: String(r.result).slice(0, 9000), size: f.size }); drawFiles(); }; r.readAsText(f); }); };
+    var i = document.createElement('input'); i.type = 'file'; i.multiple = true;
+    i.accept = 'image/*,.png,.jpg,.jpeg,.webp,.txt,.md,.csv,.json,.js,.jsx,.ts,.tsx,.py,.html,.css,.java,.c,.cpp,.go,.rs,.php,.rb,.sh,.sql,.xml,.yml,.yaml,.log,.env,.ini,.toml,text/*';
+    i.onchange = function () {
+      Array.from(i.files).slice(0, 4).forEach(function (f) {
+        if (isImg(f)) {
+          if (f.size > 12000000) return toast(f.name + ' is too large (max 12 MB).');
+          shrink(f, function (d) { S.imgs.push({ name: f.name, dataUrl: d }); drawFiles(); });
+        } else if (/^video\//.test(f.type) || /\.(mp4|mov|webm|mkv)$/i.test(f.name)) {
+          toast('Video isn’t supported for AI analysis yet — try a photo, or a transcript as a text file.');
+        } else {
+          if (f.size > 400000) return toast(f.name + ' is too large (max 400 KB).');
+          var r = new FileReader(); r.onload = function () { S.files.push({ name: f.name, text: String(r.result).slice(0, 9000), size: f.size }); drawFiles(); }; r.readAsText(f);
+        }
+      });
+    };
     i.click();
   }
   function drawFiles() {
-    var f = $('#files'); if (!f) return; f.replaceChildren(); f.style.display = S.files.length ? '' : 'none';
+    var f = $('#files'); if (!f) return; f.replaceChildren(); f.style.display = (S.files.length || S.imgs.length) ? '' : 'none';
+    S.imgs.forEach(function (x, i) { var c = el('<div class="fc"><img src="' + x.dataUrl + '" alt="" style="width:26px;height:26px;border-radius:7px;object-fit:cover"><span><b>' + esc(x.name) + '</b><small>image · ready</small></span><button aria-label="Remove">' + IC.x + '</button></div>'); c.querySelector('button').onclick = function () { S.imgs.splice(i, 1); drawFiles(); }; f.appendChild(c); });
     S.files.forEach(function (x, i) { var c = el('<div class="fc"><i>' + esc((x.name.split('.').pop() || 'file').slice(0, 4).toUpperCase()) + '</i><span><b>' + esc(x.name) + '</b><small>' + (x.size >= 1000 ? (x.size / 1000).toFixed(1) + ' KB' : x.size + ' B') + ' · ready</small></span><button aria-label="Remove">' + IC.x + '</button></div>'); c.querySelector('button').onclick = function () { S.files.splice(i, 1); drawFiles(); }; f.appendChild(c); });
+    syncSend();
   }
   var rec = null;
   function dictate() {
-    var SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $('#mic'), ta = $('#ta');
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $('#send'), ta = $('#ta');
     if (!SR) return toast('Voice input isn’t supported in this browser. Try Chrome or Safari.');
     if (rec) { rec.stop(); return; }
     rec = new SR(); rec.interimResults = true; rec.continuous = true; rec.lang = navigator.language || 'en-US';
     var base = ta.value ? ta.value + ' ' : '';
     rec.onresult = function (e) { var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; ta.value = base + t; ta.oninput(); };
-    rec.onend = function () { rec = null; mic && mic.classList.remove('rec'); ta.placeholder = 'Message CEASER AI…'; }; rec.onerror = function (e) { toast(e.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice input stopped.'); };
+    rec.onend = function () { rec = null; mic && mic.classList.remove('rec'); ta.placeholder = S.imode ? 'Describe the image you want…' : 'Message CEASER AI…'; syncSend(); }; rec.onerror = function (e) { toast(e.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice input stopped.'); };
     try { rec.start(); mic.classList.add('rec'); ta.placeholder = 'Listening…'; toast('Listening — tap the mic again to stop'); } catch (e) { rec = null; }
   }
   function modelSheet() {
@@ -254,36 +305,78 @@
     s.hidden = false;
     s.onclick = function (e) { var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); } if (b || e.target === s) s.hidden = true; };
   }
-  /* smooth "being written" effect: incoming text is revealed at an adaptive speed */
+  /* smooth "being written" effect. Text is revealed in small batches and the DOM is refreshed ~14x/second at most, so long code never makes the page lag */
   function typer(am, node, ms, th) {
-    var q = '', raf = 0, done = false, resolve = null;
-    function tick() {
+    var q = '', raf = 0, done = false, resolve = null, lastR = 0, wrote = false;
+    function tick(ts) {
       raf = 0;
       if (q) {
-        var n = Math.max(3, Math.ceil(q.length / 10)); am.content += q.slice(0, n); q = q.slice(n); if (th && !th.dataset.w) { th.dataset.w = 1; th.querySelector('.tx').textContent = 'Writing…'; }
+        if (!done && ts - lastR < 70) { raf = requestAnimationFrame(tick); return; }
+        lastR = ts;
+        var n = done ? q.length : Math.max(8, Math.ceil(q.length / 5)); am.content += q.slice(0, n); q = q.slice(n);
         node.innerHTML = md(am.content, true);
-        var near = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 140; if (near) ms.scrollTop = ms.scrollHeight;
+        var near = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 160; if (near) ms.scrollTop = ms.scrollHeight;
       }
       if (q || !done) raf = requestAnimationFrame(tick); else if (resolve) resolve();
     }
     return { push: function (t) { q += t; if (!raf) raf = requestAnimationFrame(tick); },
       finish: function () { done = true; return new Promise(function (r) { resolve = r; if (!q) { if (raf) cancelAnimationFrame(raf); r(); } else if (!raf) raf = requestAnimationFrame(tick); }); } };
   }
+  function finishThink(th, thb, steps, t0, label) {
+    if (!th) return; var sec = Math.max(1, Math.round((Date.now() - t0) / 1000)), n = Math.max(1, steps);
+    th.classList.remove('open'); th.classList.add('done'); if (thb) thb.classList.remove('show', 'live', 'open');
+    th.innerHTML = '<span class="sp">' + IC.ok + '</span><span class="tx">' + (label || 'Worked for ') + (sec >= 60 ? Math.floor(sec / 60) + 'm ' + (sec % 60) + 's' : sec + 's') + ' · ' + n + ' step' + (n === 1 ? '' : 's') + '</span><span class="chv">' + IC.chev + '</span>';
+    th.onclick = function () { var o = thb.classList.toggle('show'); thb.classList.toggle('open', o); th.classList.toggle('open', o); };
+  }
   async function send(preset) {
-    var ta = $('#ta'), text = (preset || (ta && ta.value) || '').trim(); if ((!text && !S.files.length) || S.busy) return; if (!text) text = 'Please review the attached file.';
+    var ta = $('#ta'), text = (preset || (ta && ta.value) || '').trim(); if ((!text && !S.files.length && !S.imgs.length) || S.busy) return;
+    // "/image a cat wearing sunglasses" (or Image mode) generates a picture instead of chatting
+    var im = /^\/(image|img)\s+([\s\S]+)/i.exec(text);
+    if (im) return sendImageGen(im[2].trim());
+    if (S.imode && text && !S.files.length && !S.imgs.length) return sendImageGen(text);
+    if (!text) text = S.imgs.length && !S.files.length ? 'What is in this image?' : 'Please review the attached file.';
     var full = text + S.files.map(function (f) { return '\n\n<<<FILE ' + f.name.replace(/[<>\n]/g, '') + '>>>\n' + f.text + '\n<<<END>>>'; }).join('');
-    S.busy = true; $('#send').disabled = true; if (rec) rec.stop(); ta.value = ''; ta.style.height = 'auto'; S.files = []; drawFiles();
-    var am = { role: 'assistant', content: '' };
+    var atts = S.imgs.slice();
+    S.busy = true; if (rec) rec.stop(); if (ta) { ta.value = ''; ta.style.height = 'auto'; } S.files = []; S.imgs = []; drawFiles(); syncSend();
+    var um = { role: 'user', content: full, _imgs: atts }, am = { role: 'assistant', content: '' };
+    S.ac = new AbortController();
+    var tw = null, th = null, thb = null, thin = null, steps = 0, lastP = null, t0 = Date.now(), aborted = false, node = null;
+    var low = function () { if (thb) thb.scrollTop = thb.scrollHeight; };
     try {
       if (!S.cur) { var cv = (await api('POST', '/api/chat/conversations')).conversation; S.cur = cv.id; S.convs.unshift(cv); renderHist(); }
-      S.msgs.push({ role: 'user', content: full }, am); drawMsgs();
-      var cn = $('#inner').lastChild.querySelector('.c'), node = cn.querySelector('.body'), th = cn.querySelector('.think'), ms = $('#msgs'), t0 = Date.now();
-      var tw = typer(am, node, ms, th);
-      await stream('/api/chat/conversations/' + S.cur + '/messages', { content: full, model: S.model || undefined }, function (d) { tw.push(d); });
-      await tw.finish(); node.innerHTML = md(am.content); mountPreviews(node); loadConvs(); loadBal();
-      if (th) { var sec = Math.max(1, Math.round((Date.now() - t0) / 1000)); th.classList.add('done'); th.innerHTML = '<span class="sp">' + IC.ok + '</span><span class="tx">Worked for ' + (sec >= 60 ? Math.floor(sec / 60) + 'm ' + (sec % 60) + 's' : sec + 's') + '</span>'; }
-    } catch (e) { toast(e.message); if (!am.content) { S.msgs = S.msgs.filter(function (m) { return m !== am; }); if (S.page === 'chat') drawMsgs(); } }
-    S.busy = false; var s = $('#send'); if (s) s.disabled = false;
+      S.msgs.push(um, am); drawMsgs();
+      var cn = $('#inner').lastChild.querySelector('.c'), ms = $('#msgs');
+      node = cn.querySelector('.body'); th = cn.querySelector('.think'); thb = cn.querySelector('.thbox'); thin = thb.querySelector('.thin');
+      th.onclick = function () { var o = thb.classList.toggle('show'); th.classList.toggle('open', o); };
+      tw = typer(am, node, ms, th);
+      await stream('/api/chat/conversations/' + S.cur + '/messages', { content: full, model: S.model || undefined, attachments: atts },
+        function (d) { tw.push(d); },
+        function (t) { if (!lastP) { lastP = document.createElement('p'); thin.appendChild(lastP); } lastP.textContent += t; low(); },
+        function (t) { steps++; lastP = null; var d = el('<div class="stp"><i></i><span></span></div>'); d.lastChild.textContent = t; thin.appendChild(d); th.querySelector('.tx').textContent = t; low(); },
+        S.ac.signal);
+    } catch (e) {
+      if (e && e.name === 'AbortError') aborted = true; else toast(e.message);
+    }
+    if (tw) { try { await tw.finish(); } catch (e) {} }
+    if (node && am.content) { node.innerHTML = md(am.content); mountPreviews(node); }
+    if (th) { if (am.content) finishThink(th, thb, steps, t0, aborted ? 'Stopped after ' : 'Worked for '); else if (S.page === 'chat') { S.msgs = S.msgs.filter(function (m) { return m !== am; }); if (aborted) S.msgs = S.msgs.filter(function (m) { return m !== um; }); drawMsgs(); } }
+    else if (!aborted) { S.msgs = S.msgs.filter(function (m) { return m !== am && m !== um; }); if (S.page === 'chat') drawMsgs(); }
+    S.ac = null; S.busy = false; syncSend(); loadConvs(); loadBal();
+  }
+  /* animated image generation: a shimmering placeholder swaps for the finished picture (saved in the chat, survives reloads) */
+  async function sendImageGen(prompt) {
+    var ta = $('#ta'); if (ta) { ta.value = ''; ta.style.height = 'auto'; }
+    S.busy = true; syncSend(); var t0 = Date.now(), tick = 0;
+    try {
+      if (!S.cur) { var cv = (await api('POST', '/api/chat/conversations')).conversation; S.cur = cv.id; S.convs.unshift(cv); renderHist(); }
+      S.msgs.push({ role: 'user', content: '/image ' + prompt }, { role: 'assistant', content: '', _gen: true }); drawMsgs();
+      var node = $('#inner').lastChild.querySelector('.body'), em = node.querySelector('em'), ms = $('#msgs'); ms.scrollTop = ms.scrollHeight;
+      tick = setInterval(function () { if (em) em.textContent = 'Creating your image… ' + Math.round((Date.now() - t0) / 1000) + 's'; }, 1000);
+      var r = await api('POST', '/api/chat/image', { prompt: prompt, conversationId: S.cur });
+      var md1 = '![' + prompt.replace(/[\[\]\n]/g, ' ').slice(0, 120) + '](' + r.url + ')';
+      S.msgs[S.msgs.length - 1] = { role: 'assistant', content: md1 }; node.innerHTML = md(md1);
+    } catch (e) { toast(e.message); S.msgs = S.msgs.slice(0, -2); if (S.page === 'chat') drawMsgs(); }
+    clearInterval(tick); S.busy = false; syncSend(); loadConvs(); loadBal();
   }
 
   /* ---------- pages ---------- */
@@ -303,27 +396,50 @@
     if (!S.convs.length) l.innerHTML = '<small>No conversations yet. Start chatting!</small>';
     S.convs.slice(0, 6).forEach(function (c) { var r = el('<div class="row"><span>' + esc(c.title || 'New conversation') + '</span><small>' + (c.last_message_at ? new Date(c.last_message_at).toLocaleDateString() : '') + '</small></div>'); r.onclick = function () { openConv(c.id); }; l.appendChild(r); });
   }
-  var TPL = [['✍️', 'Blog Post', 'Article with intro, sections and CTA', 'Write a detailed, engaging blog post about: {t}. Include an introduction, 3-4 sections with subheadings, and a conclusion.'], ['📧', 'Cold Email', 'High-converting outreach', 'Write a concise, personalized cold email for: {t}. Friendly, value-focused, with a clear call to action.'], ['💻', 'Code Review', 'Bugs, improvements, refactor', 'Review this code and give bugs found, improvements, best practices and a refactored version. Code: {t}'], ['📄', 'Resume Bio', 'Professional summary', 'Write a compelling 3-4 sentence professional resume summary. Role/background: {t}.'], ['🗺️', 'Project Plan', 'Phases, milestones, risks', 'Create a detailed project plan for: {t}. Include phases, milestones, tasks, timeline estimates and risks.'], ['📱', 'Social Post', '3 engaging variations', 'Write 3 variations of a social media post about: {t}, each engaging, with emojis and a call to action.'], ['🔍', 'Explain Concept', 'Clear, with examples', 'Explain {t} clearly. Start simple, go deeper, use a real-world analogy, and end with a practical example.'], ['🐛', 'Debug Helper', 'Find and fix bugs fast', 'Help me debug this issue: {t}. Identify the root cause, explain why, and provide a fix.']];
+  var TPL = [
+    ['🌐', 'Website builder', 'A complete responsive site', 'Build a complete, modern, responsive website for: {t}. One index.html file with clean design.', 'Code'],
+    ['💻', 'Code review', 'Bugs, improvements, refactor', 'Review this code and give bugs found, improvements, best practices and a refactored version. Code: {t}', 'Code'],
+    ['🐛', 'Debug helper', 'Find and fix bugs fast', 'Help me debug this issue: {t}. Identify the root cause, explain why, and provide a fix.', 'Code'],
+    ['🗄️', 'SQL helper', 'Queries from plain English', 'Write an efficient SQL query for: {t}. Explain how it works and mention indexes that would help.', 'Code'],
+    ['✍️', 'Blog post', 'Intro, sections and a CTA', 'Write a detailed, engaging blog post about: {t}. Include an introduction, 3-4 sections with subheadings, and a conclusion.', 'Write'],
+    ['📱', 'Social post', '3 punchy variations', 'Write 3 variations of a social media post about: {t}, each engaging, with emojis and a call to action.', 'Write'],
+    ['📝', 'Summarize', 'Short and sharp', 'Summarize the following in 5 clear bullet points and one takeaway sentence: {t}', 'Write'],
+    ['📧', 'Cold email', 'High-converting outreach', 'Write a concise, personalized cold email for: {t}. Friendly, value-focused, with a clear call to action.', 'Business'],
+    ['📄', 'Resume bio', 'Professional summary', 'Write a compelling 3-4 sentence professional resume summary. Role/background: {t}.', 'Business'],
+    ['🗺️', 'Project plan', 'Phases, milestones, risks', 'Create a detailed project plan for: {t}. Include phases, milestones, tasks, timeline estimates and risks.', 'Business'],
+    ['🛍️', 'Product copy', 'Titles, bullets, description', 'Write a product title, 5 benefit bullets and a persuasive description for: {t}.', 'Business'],
+    ['🔍', 'Explain it', 'Simple first, then deeper', 'Explain {t} clearly. Start simple, go deeper, use a real-world analogy, and end with a practical example.', 'Learn'],
+    ['📚', 'Study plan', 'A week-by-week roadmap', 'Create a practical study plan to learn: {t}. Break it into weeks with goals, resources and a small project.', 'Learn']
+  ];
+  var TCATS = ['All', 'Code', 'Write', 'Business', 'Learn'];
   function renderTemplates(main) {
-    var slug = function (s) { return s.toLowerCase().replace(/\s+/g, '-'); };
-    var w = page(main, '<h1>AI Templates</h1><p class="sb">Pick a template, add your topic, get a result instantly.</p><div class="tg">' + TPL.map(function (t, i) {
-      var pv = esc(t[3]).replace('{t}', '<u>{topic}</u>');
-      return '<button class="tc cbk" data-i="' + i + '"><div class="h"><span class="tl"><i></i><i></i><i></i></span><em>' + slug(t[1]) + '.tpl</em><b>' + t[0] + '</b></div><pre>' + pv + '</pre><div class="f"><span><strong>' + esc(t[1]) + '</strong> · ' + esc(t[2]) + '</span><span class="use">Use ↗</span></div></button>';
-    }).join('') + '</div><div id="ws"></div>');
-    w.onclick = function (e) {
-      var c = e.target.closest('.tc'); if (!c) return; var t = TPL[c.dataset.i], last = '';
-      w.querySelectorAll('.tc').forEach(function (x) { x.classList.toggle('sel', x === c); });
-      $('#ws').innerHTML = '<div class="cbk wsb"><div class="h"><span class="tl"><i></i><i></i><i></i></span><em>' + slug(t[1]) + '.tpl</em><b>' + t[0] + '</b></div><div class="wsc"><div class="fld"><label>Your topic</label><textarea id="tt" placeholder="Describe your topic or paste your content…"></textarea></div><button class="btn" id="tr">Generate ✨</button><div class="out" id="to" hidden></div><div class="tact" id="ta2" hidden><button class="btn g" id="tcp">Copy result</button><button class="btn g" id="toc">Open in chat →</button></div></div></div>';
-      $('#ws').scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(function () { $('#tt').focus({ preventScroll: true }); }, 350);
-      $('#tr').onclick = async function () {
-        var topic = $('#tt').value.trim(); if (!topic) return $('#tt').focus(); var b = this, o = $('#to'); b.disabled = true; b.textContent = 'Generating…'; o.hidden = false; o.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; last = '';
-        try { var cv = (await api('POST', '/api/chat/conversations')).conversation; var r = 0;
-          await stream('/api/chat/conversations/' + cv.id + '/messages', { content: t[3].replace('{t}', topic), model: S.model || undefined }, function (d) { last += d; if (!r) r = requestAnimationFrame(function () { r = 0; o.innerHTML = md(last, true); }); });
-          o.innerHTML = md(last); mountPreviews(o); api('DELETE', '/api/chat/conversations/' + cv.id).catch(function () {}); $('#ta2').hidden = false; loadBal();
-        } catch (er) { o.innerHTML = '<span style="color:var(--err)">' + esc(er.message) + '</span>'; }
-        b.disabled = false; b.textContent = 'Generate ✨';
-        $('#tcp').onclick = function () { copy(last, this, 'Copy result'); }; $('#toc').onclick = function () { S.cur = null; S.msgs = [{ role: 'user', content: topic }, { role: 'assistant', content: last }]; go('chat', true); };
-      };
+    var cat = 'All', q = '';
+    var w = page(main, '<h1>Templates</h1><p class="sb">Pick one, add your topic, get a finished result.</p>' +
+      '<label class="tsr">' + IC.search + '<input id="tq" placeholder="Search templates" autocomplete="off"></label>' +
+      '<div class="tchips" id="tch">' + TCATS.map(function (c) { return '<button data-c="' + c + '" class="' + (c === 'All' ? 'on' : '') + '">' + c + '</button>'; }).join('') + '</div><div class="tpg" id="tpg"></div>');
+    function draw() {
+      var list = TPL.map(function (t, i) { return { t: t, i: i }; }).filter(function (x) { return (cat === 'All' || x.t[4] === cat) && (!q || (x.t[1] + ' ' + x.t[2]).toLowerCase().indexOf(q) > -1); });
+      $('#tpg').innerHTML = list.length ? list.map(function (x) { return '<button class="tpc" data-i="' + x.i + '"><span class="te">' + x.t[0] + '</span><b>' + esc(x.t[1]) + '</b><small>' + esc(x.t[2]) + '</small></button>'; }).join('') : '<div class="tnone">No templates match.</div>';
+    }
+    draw();
+    $('#tq').oninput = function () { q = this.value.trim().toLowerCase(); draw(); };
+    $('#tch').onclick = function (e) { var b = e.target.closest('[data-c]'); if (!b) return; cat = b.dataset.c; this.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); draw(); };
+    $('#tpg').onclick = function (e) { var c = e.target.closest('.tpc'); if (c) useTpl(TPL[c.dataset.i]); };
+  }
+  function useTpl(t) {
+    var s = $('#sheet'), last = '';
+    s.innerHTML = '<div class="box tbox"><div class="grab"></div><div class="th"><span class="te">' + t[0] + '</span><div><b>' + esc(t[1]) + '</b><small>' + esc(t[2]) + '</small></div><button class="tcl" id="tcl" aria-label="Close">' + IC.x + '</button></div>' +
+      '<textarea id="tt" placeholder="Describe your topic or paste your content…"></textarea><button class="btn tgo" id="tr">Generate</button><div class="out" id="to" hidden></div><div class="tact" id="ta2" hidden><button class="btn g" id="tcp">Copy result</button><button class="btn g" id="toc">Open in chat →</button></div></div>';
+    s.hidden = false; s.onclick = function (e) { if (e.target === s || e.target.closest('#tcl')) s.hidden = true; };
+    setTimeout(function () { var x = $('#tt'); if (x) x.focus({ preventScroll: true }); }, 260);
+    $('#tr').onclick = async function () {
+      var topic = $('#tt').value.trim(); if (!topic) return $('#tt').focus(); var b = this, o = $('#to'); b.disabled = true; b.textContent = 'Generating…'; o.hidden = false; o.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; last = '';
+      try { var cv = (await api('POST', '/api/chat/conversations')).conversation, r = 0;
+        await stream('/api/chat/conversations/' + cv.id + '/messages', { content: t[3].replace('{t}', topic), model: S.model || undefined }, function (d) { last += d; if (!r) r = setTimeout(function () { r = 0; o.innerHTML = md(last, true); }, 90); });
+        clearTimeout(r); o.innerHTML = md(last); mountPreviews(o); api('DELETE', '/api/chat/conversations/' + cv.id).catch(function () {}); $('#ta2').hidden = false; loadBal();
+      } catch (er) { o.innerHTML = '<span style="color:var(--err)">' + esc(er.message) + '</span>'; }
+      b.disabled = false; b.textContent = 'Generate again';
+      $('#tcp').onclick = function () { copy(last, this, 'Copy result'); }; $('#toc').onclick = function () { s.hidden = true; S.cur = null; S.msgs = [{ role: 'user', content: t[3].replace('{t}', topic) }, { role: 'assistant', content: last }]; go('chat', true); };
     };
   }
   function renderRef(main) {
@@ -388,7 +504,7 @@
 
   /* ---------- top-right menu ---------- */
   function topMenu() {
-    var m = $('#tmenu'), b = $('#dots'); if (!m.hidden) { m.hidden = true; return; }
+    var m = $('#tmenu'), b = $('#hdrTrigger'); if (!m.hidden) { m.hidden = true; return; }
     var it = function (ic, label, a, cls) { return '<button class="ti' + (cls ? ' ' + cls : '') + '" data-a="' + a + '">' + IC[ic] + '<span>' + label + '</span></button>'; };
     m.innerHTML = '<div class="tu"><div class="av">' + esc(S.user.name.charAt(0).toUpperCase()) + '</div><div><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div></div>' +
       it('home2', 'Home', 'home') + it('chat', 'New chat', 'new') + it('gift', 'Referrals', 'referrals') + it('set', 'Settings', 'settings') + '<div class="sep"></div>' + it('out', 'Sign out', 'out', 'red');
@@ -396,13 +512,24 @@
     m.onclick = function (e) { var x = e.target.closest('[data-a]'); if (!x) return; m.hidden = true; var a = x.dataset.a; if (a === 'home') location.href = '/'; else if (a === 'out') signOut(); else if (a === 'new') go('chat'); else go(a); };
     setTimeout(function () { document.addEventListener('pointerdown', function h(e) { if (!m.contains(e.target) && !b.contains(e.target)) { m.hidden = true; } if (m.hidden || !m.contains(e.target)) document.removeEventListener('pointerdown', h); }); }, 0);
   }
-  $('#dots').onclick = topMenu;
+  /* ---------- header tray: one tiny button; it slides the quick actions out, then tucks itself away ---------- */
+  var trayT = 0;
+  function tray(open) {
+    var t = $('#tray'); if (!t) return; clearTimeout(trayT);
+    var on = open === undefined ? !t.classList.contains('open') : open; t.classList.toggle('open', on);
+    if (on) trayT = setTimeout(function () { tray(false); }, 4200);
+  }
+  $('#hdrTrigger').onclick = function () { var m = $('#tmenu'); if (!m.hidden) { m.hidden = true; return; } tray(); };
+  $('#tray').addEventListener('pointerdown', function () { if ($('#tray').classList.contains('open')) { clearTimeout(trayT); trayT = setTimeout(function () { tray(false); }, 4200); } });
+  document.addEventListener('pointerdown', function (e) { var t = $('#tray'); if (t && t.classList.contains('open') && !t.contains(e.target)) tray(false); }, true);
+  $('#dots').onclick = function () { topMenu(); tray(false); };
+  $('#nc').onclick = function () { tray(false); go('chat'); var t = $('#ta'); if (t) t.focus(); };
 
-  /* ---------- live status chip ---------- */
+  /* ---------- live status chip (dot mirrors onto the header trigger too, so the status is visible even while the popover is closed) ---------- */
   function ping() {
-    var c = $('#live'); if (!c) return; var t0 = performance.now();
-    fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; var ms = Math.round(performance.now() - t0); c.className = 'live'; c.lastChild.textContent = 'Live · ' + ms + ' ms'; })
-      .catch(function () { c.className = 'live off'; c.lastChild.textContent = navigator.onLine ? 'Server down' : 'Offline'; });
+    var c = $('#live'), dot = $('#hdrDot'); if (!c) return; var t0 = performance.now();
+    fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; var ms = Math.round(performance.now() - t0); c.className = 'live'; c.lastChild.textContent = 'Live · ' + ms + ' ms'; if (dot) dot.className = 'hdrDot on'; })
+      .catch(function () { c.className = 'live off'; c.lastChild.textContent = navigator.onLine ? 'Server down' : 'Offline'; if (dot) dot.className = 'hdrDot off'; });
   }
   setInterval(function () { if (!document.hidden) ping(); }, 20000); addEventListener('online', ping); addEventListener('offline', ping); document.addEventListener('visibilitychange', function () { if (!document.hidden) ping(); });
 
@@ -414,8 +541,7 @@
   }
   $('#mb').onclick = function () { navOpen(!shell.classList.contains('nav-open')); };
   $('#scrim').onclick = function () { navOpen(false); };
-  $('#nc').onclick = function () { go('chat'); var t = $('#ta'); if (t) t.focus(); };
-  addEventListener('keydown', function (e) { if (e.key === 'Escape') { navOpen(false); $('#pop').hidden = true; $('#tmenu').hidden = true; $('#sheet').hidden = true; } });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape') { navOpen(false); $('#pop').hidden = true; $('#tmenu').hidden = true; $('#sheet').hidden = true; tray(false); } });
   (async function () {
     stage(14, 'Waking the engine…');
     try { S.user = (await api('GET', '/api/auth/me')).user; } catch (e) { S.user = null; }
@@ -427,6 +553,6 @@
     if (innerWidth >= 960) navOpen(true);
     loadBal(); stage(86, 'Loading your chats…'); await loadConvs();
     var h = location.hash.slice(1); go(['chat', 'templates', 'dashboard', 'plan', 'referrals', 'team', 'settings'].indexOf(h) > -1 ? h : 'chat', true);
-    ping(); stage(100, 'Ready'); var b = $('#boot'), wait = Math.max(350, 1500 - (performance.now() || 0)); setTimeout(function () { b.classList.add('x'); setTimeout(function () { b.remove(); }, 420); }, wait);
+    ping(); stage(100, 'Ready'); var b = $('#boot'), wait = Math.max(250, 900 - (performance.now() || 0)); setTimeout(function () { b.classList.add('x'); setTimeout(function () { b.remove(); }, 420); }, wait);
   })();
 })();

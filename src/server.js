@@ -14,7 +14,7 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: { useDefaults: true, directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'upgrade-insecure-requests': cfg.prod ? [] : null } } }));
 app.use(cookieParser());
 app.post('/api/billing/webhook/stripe', express.raw({ type: 'application/json' }), billing.stripeWebhook); // must be BEFORE express.json
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '20mb' })); // raised so image/vision attachments (base64) fit
 app.use(auth.loadUser);
 
 // CSRF: every state-changing request must carry the x-csrf-token header matching the cookie, and come from our own origin
