@@ -55,7 +55,7 @@ app.use(['/api/projects', '/api/files', '/api/teams', '/api/v1'], auth.requireUs
 app.use('/api', (req, res, next) => next(new HttpError(404, 'not_found', 'Unknown endpoint.')));
 
 // Serve the website itself from the same server (same origin = cookies + CSRF just work)
-app.use(express.static(cfg.frontend, { index: 'index.html', maxAge: '1h' }));
+app.use(express.static(cfg.frontend, { index: 'index.html', maxAge: '1h', setHeaders: (res, file) => { if (/\.html$/i.test(file)) res.setHeader('Cache-Control', 'no-store, must-revalidate'); } }));
 app.get('*', (req, res) => fs.existsSync(path.join(cfg.frontend, 'index.html')) ? res.sendFile(path.join(cfg.frontend, 'index.html')) : res.status(404).send('Frontend not found. Check FRONTEND_DIR.'));
 
 app.use((err, req, res, next) => {

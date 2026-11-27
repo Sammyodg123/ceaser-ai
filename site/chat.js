@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
-  var S = { tone: localStorage.getItem('cz_tone') || '', user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], imgs: [], bal: null };
+  var S = { tone: localStorage.getItem('cz_tone') || '', autoCategory: localStorage.getItem('cz_auto_category') || 'censored', user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], imgs: [], bal: null };
   var IC = {
     menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>',
     home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg>',
@@ -180,7 +180,8 @@
 
   /* ---------- chat ---------- */
   var SUG = [['</>', 'Build a responsive portfolio website'], ['?', 'Explain how JWT authentication works'], ['!', 'Find the bug in my JavaScript function'], ['API', 'Plan a REST API for a task manager']];
-  function modelLabel() { var m = S.models.find(function (x) { return x.id === S.model; }) || S.models[0]; return m ? m.label : 'No model'; }
+  function modelLabel() { if (!S.model || S.model === 'auto') return 'Auto · ' + (S.autoCategory === 'uncensored' ? 'Uncensored' : 'Censored'); var m = S.models.find(function (x) { return x.id === S.model; }) || S.models[0]; return m ? m.label : 'No model'; }
+  function requestTone() { return S.tone || ((!S.model || S.model === 'auto') && S.autoCategory === 'uncensored' ? 'blunt' : ''); }
   function renderChat(main) {
     main.innerHTML = '<div class="msgs" id="msgs"><div class="in" id="inner"></div></div>' +
       '<div class="dock"><div class="comp"><div class="files" id="files"></div><textarea id="ta" rows="1" placeholder="Message CEASER AI…" enterkeyhint="send"></textarea>' +
@@ -309,11 +310,13 @@
     try { rec.start(); mic.classList.add('rec'); ta.placeholder = 'Listening…'; toast('Listening — tap the mic again to stop'); } catch (e) { rec = null; }
   }
   function modelSheet() {
-    var s = $('#sheet'), tn = S.tone === 'blunt', ms = S.models.length ? S.models : [{ id: '', label: 'No model yet', desc: 'Add an API key to your .env file' }];
-    var lastG = null;
-    s.innerHTML = '<div class="box"><h3>Choose model</h3><button class="opt' + (tn ? ' on' : '') + '" data-t="1"><div><b>Blunt mode</b><small>Harsh, direct, no sugarcoating (still safe)</small></div><span class="ck">' + (tn ? IC.ok : '') + '</span></button>' + ms.map(function (m) { var gh = ''; if (m.group && m.group !== lastG) { lastG = m.group; gh = '<div class="grp">' + esc(m.group) + '</div>'; } return gh + '<button class="opt' + (m.id === S.model || (!S.model && m === ms[0]) ? ' on' : '') + '" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(m.desc || '') + '</small></div><span class="ck">' + ((m.id === S.model || (!S.model && m === ms[0])) ? IC.ok : '') + '</span></button>'; }).join('') + '</div>';
+    var s = $('#sheet'), ms = S.models.length ? S.models : [], directRe = /wormgpt|llamacoder|qwen3-coder/i, safeRe = /^(qwen|chatai|chatbot|claude)$/i;
+    var direct = ms.filter(function (m) { return directRe.test(m.id); }), safe = ms.filter(function (m) { return safeRe.test(m.id); }), other = ms.filter(function (m) { return m.id !== 'auto' && !directRe.test(m.id) && !safeRe.test(m.id); });
+    function row(m) { var on = m.id === S.model; return '<button class="opt' + (on ? ' on' : '') + '" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(m.desc || '') + '</small></div><span class="ck">' + (on ? IC.ok : '') + '</span></button>'; }
+    function group(title, desc, key, list) { return '<section class="model-group"><button class="model-cat' + (S.autoCategory === key && (!S.model || S.model === 'auto') ? ' on' : '') + '" data-cat="' + key + '"><div><b>' + title + '</b><small>' + desc + '</small></div><span class="catcheck">' + (S.autoCategory === key && (!S.model || S.model === 'auto') ? IC.ok : '') + '</span></button><div class="model-engines"><small class="grp">' + (key === 'uncensored' ? 'Direct engines' : 'Protected engines') + '</small>' + (list.length ? list.map(row).join('') : '<p class="model-empty">Enable Omega AI to show its built-in engines.</p>') + '</div></section>'; }
+    s.innerHTML = '<div class="box"><h3>Auto routing</h3><p class="model-intro">Choose a category, then select an engine or leave Auto selected.</p>' + group('Censored', 'Normal, careful answers · Omega Qwen first', 'censored', safe) + group('Uncensored', 'Blunt, direct answers · Omega WormGPT first', 'uncensored', direct) + (other.length ? '<div class="model-group"><div class="grp">Other configured APIs</div>' + other.map(row).join('') + '</div>' : '') + '<button class="opt' + (S.tone === 'blunt' ? ' on' : '') + '" data-t="1"><div><b>Blunt style override</b><small>Use direct language while keeping safety boundaries</small></div><span class="ck">' + (S.tone === 'blunt' ? IC.ok : '') + '</span></button></div>';
     s.hidden = false;
-    s.onclick = function (e) { var t = e.target.closest('[data-t]'); if (t) { S.tone = S.tone === 'blunt' ? '' : 'blunt'; localStorage.setItem('cz_tone', S.tone); toast(S.tone ? 'Blunt mode on' : 'Blunt mode off'); s.hidden = true; return; } var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); } if (b || e.target === s) s.hidden = true; };
+    s.onclick = function (e) { var t = e.target.closest('[data-t]'); if (t) { S.tone = S.tone === 'blunt' ? '' : 'blunt'; localStorage.setItem('cz_tone', S.tone); toast(S.tone ? 'Blunt style on' : 'Blunt style off'); modelSheet(); return; } var c = e.target.closest('[data-cat]'); if (c) { S.model = 'auto'; S.autoCategory = c.dataset.cat; S.tone = S.autoCategory === 'uncensored' ? 'blunt' : ''; localStorage.setItem('cz_model', 'auto'); localStorage.setItem('cz_auto_category', S.autoCategory); localStorage.setItem('cz_tone', S.tone); var l0 = $('#ml'); if (l0) l0.textContent = modelLabel(); modelSheet(); return; } var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); s.hidden = true; } if (e.target === s) s.hidden = true; };
   }
   /* smooth "being written" effect. Text is revealed in small batches and the DOM is refreshed ~14x/second at most, so long code never makes the page lag */
   function typer(am, node, ms, th) {
@@ -391,7 +394,7 @@
       node = cn.querySelector('.body'); th = cn.querySelector('.think'); thb = cn.querySelector('.thbox'); thin = thb.querySelector('.thin');
       th.onclick = function () { var o = thb.classList.toggle('show'); th.classList.toggle('open', o); };
       tw = typer(am, node, ms, th);
-      await stream('/api/chat/conversations/' + S.cur + (regen ? '/regenerate' : '/messages'), regen ? { model: S.model || undefined, tone: S.tone || undefined } : { content: full, model: S.model || undefined, tone: S.tone || undefined, attachments: atts },
+      await stream('/api/chat/conversations/' + S.cur + (regen ? '/regenerate' : '/messages'), regen ? { model: S.model || undefined, tone: requestTone() || undefined } : { content: full, model: S.model || undefined, tone: requestTone() || undefined, attachments: atts },
         function (d) { tw.push(d); },
         function (t) { if (!lastP) { lastP = document.createElement('p'); thin.appendChild(lastP); } lastP.textContent += t; low(); },
         function (t) { steps++; lastP = null; var d = el('<div class="stp"><i></i><span></span></div>'); d.lastChild.textContent = t; thin.appendChild(d); th.querySelector('.tx').textContent = t; low(); },
@@ -478,7 +481,7 @@
     $('#tr').onclick = async function () {
       var topic = $('#tt').value.trim(); if (!topic) return $('#tt').focus(); var b = this, o = $('#to'); b.disabled = true; b.textContent = 'Generating…'; o.hidden = false; o.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; last = '';
       try { var cv = (await api('POST', '/api/chat/conversations')).conversation, r = 0;
-        await stream('/api/chat/conversations/' + cv.id + '/messages', { content: t[3].replace('{t}', topic), model: S.model || undefined }, function (d) { last += d; if (!r) r = setTimeout(function () { r = 0; o.innerHTML = md(last, true); }, 90); });
+        await stream('/api/chat/conversations/' + cv.id + '/messages', { content: t[3].replace('{t}', topic), model: S.model || undefined, tone: requestTone() || undefined }, function (d) { last += d; if (!r) r = setTimeout(function () { r = 0; o.innerHTML = md(last, true); }, 90); });
         clearTimeout(r); o.innerHTML = md(last); mountPreviews(o); api('DELETE', '/api/chat/conversations/' + cv.id).catch(function () {}); $('#ta2').hidden = false; loadBal();
       } catch (er) { o.innerHTML = '<span style="color:var(--err)">' + esc(er.message) + '</span>'; }
       b.disabled = false; b.textContent = 'Generate again';

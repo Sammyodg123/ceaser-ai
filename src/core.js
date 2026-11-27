@@ -93,7 +93,7 @@ function refreshPeriod(u) {
 }
 function balanceOf(u) {
   u = refreshPeriod(u);
-  if (isAdminEmail(u.email)) return { limit: null, used: u.used, bonus: u.bonus, remaining: null, allowance: null, total: null, unlimited: true, resetAt: null, nextReset: null, plan: 'owner' };
+  if (isAdminEmail(u.email)) { const unlimited = Number.MAX_SAFE_INTEGER; return { limit: unlimited, used: u.used, bonus: u.bonus, remaining: unlimited, allowance: unlimited, total: unlimited, unlimited: true, resetAt: null, nextReset: null, plan: 'owner' }; }
   const limit = planOf(u.plan).monthlyTokens, used = u.used;
   const allowance = Math.max(0, limit - used);
   return { limit, used, bonus: u.bonus, remaining: allowance + u.bonus, allowance, total: limit + u.bonus, resetAt: u.period_end, nextReset: u.period_end, plan: u.plan };
