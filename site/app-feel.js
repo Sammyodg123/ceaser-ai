@@ -13,11 +13,12 @@
     if (e.touches.length > 1) { e.preventDefault(); return; }           // no pinch zoom
     var t = e.target; if (t && t.closest && t.closest('textarea,input,[contenteditable]')) { var s0 = scroller(t); if (s0) return; }
     var s = scroller(t), dy = e.touches[0].clientY - y0;
+    if (Math.abs(dy) < 10) return;                                      // finger jitter during a tap: never cancel it, or buttons stop clicking
     if (!s) { if (document.documentElement.classList.contains('page-scroll')) { var d = document.scrollingElement || document.documentElement; if ((d.scrollTop <= 0 && dy > 0) || (d.scrollTop + d.clientHeight >= d.scrollHeight - 1 && dy < 0)) e.preventDefault(); return; } e.preventDefault(); return; } // nothing scrollable here: swallow, so the page cannot bounce
     var top = s.scrollTop <= 0, bot = s.scrollTop + s.clientHeight >= s.scrollHeight - 1;
     if ((top && dy > 0) || (bot && dy < 0)) e.preventDefault();         // at the edge: stop rubber-band / pull-to-refresh
   }, { passive: false });
   ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }); });
-  var last = 0; document.addEventListener('touchend', function (e) { var n = Date.now(); if (n - last < 300 && !(e.target.closest && e.target.closest('textarea,input'))) e.preventDefault(); last = n; }, { passive: false }); // no double-tap zoom
+  var last = 0; document.addEventListener('touchend', function (e) { var n = Date.now(); if (n - last < 300 && !(e.target.closest && e.target.closest('textarea,input,button,a,[role=button],.pop,.sheet,.tray'))) e.preventDefault(); last = n; }, { passive: false }); // no double-tap zoom
   document.addEventListener('contextmenu', function (e) { if (!(e.target.closest && e.target.closest('textarea,input,pre,code,.c'))) e.preventDefault(); });
 })();
