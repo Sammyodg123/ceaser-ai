@@ -1,0 +1,34 @@
+/* CEASER AI landing: clean, cool, dynamic, and light enough to scroll smoothly on a phone.
+   Only transform/opacity animations; no backdrop blur, no full-screen animated layers. */
+:root{--g1:#2dffa0;--g2:#19c3ff;--g3:#8b7bff}
+html{background:#070b1a}
+body:before{animation:none!important;transform:none!important;inset:0!important;background:
+  radial-gradient(60% 40% at 12% 0%,rgba(139,123,255,.45),transparent 70%),
+  radial-gradient(50% 36% at 100% 22%,rgba(25,195,255,.28),transparent 70%),
+  radial-gradient(60% 40% at 60% 100%,rgba(45,255,160,.28),transparent 70%),
+  linear-gradient(180deg,#0b1030,#08122a 55%,#07202a)!important}
+body:after{display:none!important}
+.hero h1 .grad,h2 .grad{animation:none!important;background:linear-gradient(90deg,var(--g1),var(--g2),var(--g3))!important;-webkit-background-clip:text;background-clip:text}
+.hero{padding-top:clamp(28px,7vw,72px)}
+.h1one{font-size:clamp(38px,9.5vw,76px)!important;line-height:1.02!important;letter-spacing:-.035em;font-weight:800}
+.hero .lead{font-size:clamp(16px,4.2vw,19px);max-width:34em}
+.btn.lg{box-shadow:0 10px 30px -10px rgba(45,255,160,.6);transition:transform .2s,box-shadow .2s}
+.btn.lg:active{transform:scale(.97)}
+.win{box-shadow:0 30px 60px -30px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.08)!important;animation:none!important;background:rgba(10,14,34,.85)!important;border-radius:18px}
+.win .b.u{background:rgba(45,255,160,.14)!important;border:1px solid rgba(45,255,160,.25)}
+.win .b.a pre{background:#050816;border-radius:10px;padding:10px;margin-top:8px;font-size:12.5px;overflow-x:auto;color:#bff6dd}
+.card,.step,.contact,.faq details{background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:18px!important;transition:transform .25s,border-color .25s}
+.card:hover,.step:hover{transform:translateY(-4px);border-color:rgba(45,255,160,.45)!important}
+.card .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(45,255,160,.22),rgba(25,195,255,.18));font-size:22px;margin-bottom:10px}
+.step b{background:linear-gradient(90deg,var(--g1),var(--g2));-webkit-background-clip:text;background-clip:text;color:transparent;font-size:34px}
+.sec{padding-top:clamp(44px,9vw,84px)}
+.sec h2{font-size:clamp(28px,6.5vw,44px);letter-spacing:-.03em}
+.stats{display:flex;gap:10px;flex-wrap:wrap}.stats>div{flex:1;min-width:92px;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+.stats b{display:block;font-size:20px;color:var(--g1)}
+/* scrolling engine strip: one transform animation, very cheap */
+.marq{overflow:hidden;margin:34px 0 4px;border-block:1px solid rgba(255,255,255,.08);padding:14px 0;-webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.marq .mt{display:flex;gap:34px;width:max-content;animation:marq 28s linear infinite;will-change:transform}
+.marq span{font-weight:700;font-size:clamp(16px,4vw,22px);color:rgba(255,255,255,.55);letter-spacing:.02em;white-space:nowrap}
+.marq span:nth-child(3n){color:var(--g1)}.marq span:nth-child(3n+1){color:var(--g2)}
+@keyframes marq{to{transform:translate3d(-50%,0,0)}}
+@media (prefers-reduced-motion:reduce){.marq .mt{animation:none}}

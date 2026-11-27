@@ -50,6 +50,7 @@
 
   /* ---------- background fx ---------- */
   (function () {
+    if (matchMedia('(pointer:coarse)').matches) return; // phones: no full-screen grid/glow layers (they made scrolling hang)
     var bg = el('<div class="gridbg"></div>'), gl = el('<div id="glow"></div>');
     document.body.prepend(gl); document.body.prepend(bg);
     addEventListener('pointermove', function (e) { gl.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)'; }, { passive: true });
@@ -63,7 +64,7 @@
   /* ---------- landing ---------- */
   var timers = [];
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
-  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  function later(fn, ms) { var id = setTimeout(function () { var i = timers.indexOf(id); if (i > -1) timers.splice(i, 1); fn(); }, ms); timers.push(id); } // prune finished timers: the list used to grow forever and slowly froze the page
 
   function landing() {
     clearTimers();
@@ -72,11 +73,12 @@
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
       (S.user && S.user.emailVerified ? '<div class="acct" id="acct"><button class="acct-b" id="acctb" aria-haspopup="true" aria-expanded="false"><span class="acct-av">' + esc(initial(S.user.name)) + '</span><span class="acct-n">' + esc(S.user.name) + '</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><div class="acct-m" id="acctm" hidden><div class="acct-i"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div><a href="/chat.html">Open chat</a><a href="/chat.html#dashboard">Dashboard</a><a href="/chat.html#settings">Settings</a><button id="acctso">Sign out</button></div></div>' : '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button>') + '</div></nav>' +
       '<header class="hero"><div><div class="pill live-pill" id="lpill"><b></b><span class="lt">CEASER AI · Online and ready</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>' +
-      '<h1 class="h1one">All AI. <span class="grad">One app.</span></h1><div class="engline"><span>Powered by</span><b class="type" id="ty">Claude</b></div>' +
+      '<h1 class="h1one">All the AI. <span class="grad">One clean app.</span></h1><div class="engline"><span>Powered by</span><b class="type" id="ty">Claude</b></div>' +
       '<p class="lead">Every top AI engine in one clean place. Auto picks the best one for each job, or you pick any engine yourself. Chat, build websites, write code, read screenshots and generate images.</p><div class="engchips" id="engchips"></div>' +
       '<div class="cta"><button class="btn lg" id="su2">' + (S.user && S.user.emailVerified ? 'Open chat →' : 'Start free →') + '</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
       '<div class="stats"><div><b>20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
       '<div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="demo-tools"><span>Live prompt preview</span><button id="replay">Replay</button></div><div class="body" id="demo"></div></div></header>' +
+      '<div class="marq" aria-hidden="true"><div class="mt"><span>Claude</span><span>Gemini</span><span>Grok</span><span>NVIDIA</span><span>Groq</span><span>DeepSeek</span><span>Qwen</span><span>Llama</span><span>Mistral</span><span>WormGPT</span><span>Claude</span><span>Gemini</span><span>Grok</span><span>NVIDIA</span><span>Groq</span><span>DeepSeek</span><span>Qwen</span><span>Llama</span><span>Mistral</span><span>WormGPT</span></div></div>' +
       '<section class="sec" id="features"><h2 class="rv">Everything you need, <span class="grad">nothing you don’t</span></h2><p class="sub rv">Fast, focused and designed to feel great on your phone.</p><div class="grid">' +
       feat('⚡', 'Instant streaming', 'Watch answers appear word by word instead of waiting for a wall of text.') +
       feat('💻', 'Code that works', 'Syntax-friendly code blocks with one-tap copy. Debug, refactor, explain.') +
