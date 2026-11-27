@@ -40,6 +40,7 @@ app.get('/api/public/config', (req, res) => res.json({
   plans: PLANS,
   models: models.pub(),
 }));
+app.get('/api/public/models', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ models: models.pub(), detected: models.detected(), categories: [{ id: 'censored', label: 'Censored', desc: 'Careful, polished answers' }, { id: 'uncensored', label: 'Uncensored', desc: 'Blunt, direct answers (same safety rules)' }] }); });
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/tokens', auth.requireUser, (req, res) => res.json({ balance: balanceOf(req.user) }));
 app.use('/api/auth', auth.router);
@@ -64,4 +65,4 @@ app.use((err, req, res, next) => {
   if (res.headersSent) return res.end();
   res.status(e.status).json({ error: { code: e.code, message: e.message, details: e.details } });
 });
-app.listen(cfg.port, () => console.log(`${cfg.name} running on :${cfg.port}`));
+app.listen(cfg.port, () => { console.log(`${cfg.name} running on :${cfg.port}`); models.warm().then(() => console.log('[models] engines found: ' + models.detected().map((d) => d.label).join(', '))).catch(() => {}); });

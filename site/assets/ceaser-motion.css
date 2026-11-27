@@ -220,3 +220,32 @@ body:after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opac
 #pl .plan{margin:0}
 .hero h1 .grad,h2 .grad{-webkit-text-fill-color:transparent}
 #pl.grid{background:none;border:0;border-radius:0;overflow:visible}
+
+/* ==== v15: post-OTP success scene — conic ring completes, check draws, soft burst, wipe into chat ==== */
+.vx{position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;text-align:center;color:#fff;animation:vxin .45s ease both;background:radial-gradient(55% 42% at 50% 42%,rgba(74,168,255,.18),transparent 72%),rgba(4,6,12,.94);overflow:hidden}
+@keyframes vxin{from{opacity:0}}
+.vx-glow{position:absolute;left:50%;top:42%;width:300px;height:300px;margin:-150px 0 0 -150px;border-radius:50%;background:radial-gradient(closest-side,rgba(53,240,176,.35),rgba(139,123,255,.18) 55%,transparent 72%);opacity:0;animation:vxglow 1.6s .55s ease-out both}
+@keyframes vxglow{0%{opacity:0;transform:scale(.4)}40%{opacity:1}100%{opacity:.55;transform:scale(1.25)}}
+.vx-core{position:relative;width:132px;height:132px;display:grid;place-items:center}
+.vx-ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.vx-track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:3}
+.vx-arc{fill:none;stroke:url(#vxg);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100;filter:drop-shadow(0 0 8px rgba(74,168,255,.7));animation:vxdraw .8s .15s cubic-bezier(.65,0,.25,1) forwards,vxpop .5s .95s cubic-bezier(.2,.9,.3,1.3)}
+@keyframes vxdraw{to{stroke-dashoffset:0}}
+@keyframes vxpop{50%{stroke-width:5.5}}
+.vx-core:before{content:"";position:absolute;inset:14px;border-radius:50%;background:radial-gradient(closest-side,rgba(53,240,176,.22),rgba(11,17,27,.0));opacity:0;transform:scale(.6);animation:vxfill .5s .95s ease-out forwards}
+@keyframes vxfill{to{opacity:1;transform:scale(1)}}
+.vx-check{position:relative;width:58px;height:58px;fill:none;stroke:#fff;stroke-width:4.2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 10px rgba(53,240,176,.8))}
+.vx-check path{stroke-dasharray:100;stroke-dashoffset:100;animation:vxdraw .45s .98s cubic-bezier(.65,0,.25,1) forwards}
+.vx-burst{position:absolute;left:50%;top:50%;width:0;height:0}
+.vx-burst i{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);opacity:0;animation:vxb .9s 1s cubic-bezier(.15,.8,.3,1) forwards}
+@keyframes vxb{0%{opacity:1;transform:rotate(var(--a)) translateX(48px) scale(1)}100%{opacity:0;transform:rotate(var(--a)) translateX(calc(var(--d) + 34px)) scale(.2)}}
+.vx h2{margin:26px 0 4px;font:800 28px/1.1 Inter,system-ui,sans-serif;letter-spacing:-.02em;opacity:0;transform:translateY(12px);animation:vxup .55s 1.1s cubic-bezier(.22,1,.36,1) forwards}
+.vx p{margin:0;font:500 14px Inter,system-ui,sans-serif;color:rgba(255,255,255,.62);letter-spacing:.02em;opacity:0;transform:translateY(10px);animation:vxup .55s 1.22s cubic-bezier(.22,1,.36,1) forwards}
+@keyframes vxup{to{opacity:1;transform:none}}
+.vx-bar{width:150px;height:3px;border-radius:9px;background:rgba(255,255,255,.1);margin-top:22px;overflow:hidden;opacity:0;animation:vxup .4s 1.3s forwards}
+.vx-bar i{display:block;height:100%;width:100%;border-radius:9px;background:linear-gradient(90deg,#35f0b0,#4aa8ff,#8b7bff);transform:scaleX(0);transform-origin:left;animation:vxbar 1.2s 1.35s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes vxbar{to{transform:scaleX(1)}}
+.vx-wipe{position:absolute;inset:0;background:#04060c;clip-path:circle(0 at 50% 42%);pointer-events:none}
+.vx.out .vx-wipe{animation:vxwipe .62s cubic-bezier(.7,0,.25,1) forwards}
+@keyframes vxwipe{to{clip-path:circle(150% at 50% 42%)}}
+@media (prefers-reduced-motion:reduce){.vx *,.vx{animation-duration:.01s!important;animation-delay:0s!important}}

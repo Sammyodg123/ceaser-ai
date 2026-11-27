@@ -286,6 +286,13 @@
     function roll(b) { b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll'); }
     function fill(s) { s = String(s).replace(/\D/g, '').slice(0, N); boxes.forEach(function (b, i) { b.value = s[i] || ''; if (s[i]) roll(b); }); paint(); var i = Math.min(s.length, N - 1); boxes[i].focus(); if (s.length === N) verify({ code: s }); }
 
+    function vxShow() {
+      var dots = ''; for (var i = 0; i < 14; i++) dots += '<i style="--a:' + (i * 360 / 14).toFixed(1) + 'deg;--d:' + (62 + (i % 3) * 14) + 'px;--c:' + ['#35f0b0', '#4aa8ff', '#8b7bff'][i % 3] + '"></i>';
+      var v = document.createElement('div'); v.className = 'vx'; v.setAttribute('role', 'status');
+      v.innerHTML = '<div class="vx-glow"></div><div class="vx-core"><svg class="vx-ring" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="vxg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#35f0b0"/><stop offset=".55" stop-color="#4aa8ff"/><stop offset="1" stop-color="#8b7bff"/></linearGradient></defs><circle class="vx-track" cx="60" cy="60" r="52"/><circle class="vx-arc" cx="60" cy="60" r="52" pathLength="100"/></svg><svg class="vx-check" viewBox="0 0 52 52" aria-hidden="true"><path pathLength="100" d="M14 27.5l8.5 8.5L38.5 18"/></svg><span class="vx-burst">' + dots + '</span></div><h2>Verified</h2><p>Opening your workspace</p><div class="vx-bar"><i></i></div><div class="vx-wipe"></div>';
+      document.body.appendChild(v);
+      setTimeout(function () { v.classList.add('out'); }, 1950);
+    }
     async function verify(body) {
       if (busy) return; busy = true;
       if (!body.token && (body.code || '').length !== N) { busy = false; err.textContent = 'Enter all ' + N + ' digits.'; return; }
@@ -299,7 +306,8 @@
         await wait(1700 - (Date.now() - t0)); // let the ring finish a nice spin
         state('ok'); card.classList.add('good'); go.classList.remove('load'); go.querySelector('span').textContent = 'Verified';
         kick.textContent = 'Success'; ttl.textContent = 'Verified!'; sub.textContent = 'You’re all set.';
-        setTimeout(function () { location.replace('/chat.html'); }, 1700);
+        vxShow(); // new clean success scene: ring completes, check draws, soft burst, wipe into the chat
+        setTimeout(function () { location.replace('/chat.html'); }, 2650);
         return;
       } catch (e) {
         await wait(1500 - (Date.now() - t0));

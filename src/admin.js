@@ -16,6 +16,8 @@ const GROUPS = [
   ['Email', ['ADMIN_EMAIL', 'BREVO_API_KEY', 'MAIL_FROM']],
 ];
 const ALLOWED = new Set(GROUPS.flatMap((g) => g[1]));
+const EXTRA_RE = /^[A-Z][A-Z0-9]{1,24}_(API_KEY|BASE_URL|MODEL|MODELS)$/; // new AIs can be added from the panel without touching code
+const allowed = (k) => ALLOWED.has(k) || EXTRA_RE.test(k);
 const isSecret = (k) => /KEY|TOKEN|HASH|SECRET|PASS/.test(k);
 const mask = (v) => (v.length <= 8 ? '••••' : '••••' + v.slice(-4));
 const read = () => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { return {}; } };
@@ -26,21 +28,23 @@ router.use((req, res, next) => {
 });
 
 router.get('/settings', (req, res) => {
-  res.json({ groups: GROUPS.map(([title, keys]) => ({ title, fields: keys.map((k) => { const v = String(process.env[k] || ''); return { k, secret: isSecret(k), set: !!v, value: isSecret(k) && v ? mask(v) : v }; }) })) });
+  const extra = Object.keys(process.env).filter((k) => EXTRA_RE.test(k) && !ALLOWED.has(k)).sort();
+  res.json({ groups: GROUPS.concat(extra.length ? [['Other AIs found in your environment', extra]] : []).map(([title, keys]) => ({ title, fields: keys.map((k) => { const v = String(process.env[k] || ''); return { k, secret: isSecret(k), set: !!v, value: isSecret(k) && v ? mask(v) : v }; }) })) });
 });
 
 router.post('/settings', wrap(async (req, res) => {
   const vals = req.body && req.body.values || {}, cur = read();
   Object.keys(vals).forEach((k) => {
-    if (!ALLOWED.has(k)) return;
+    if (!allowed(k)) return;
     let v = String(vals[k] == null ? '' : vals[k]).trim().replace(/^["']|["']$/g, '').trim();
     if (v.startsWith('••••')) return; // unchanged masked value
     if (v === '') { delete cur[k]; delete process.env[k]; } else { cur[k] = v; process.env[k] = v; }
   });
   fs.mkdirSync(path.dirname(FILE), { recursive: true });
   fs.writeFileSync(FILE, JSON.stringify(cur, null, 2));
-  models.reset();
-  res.json({ ok: true });
+  models.reset(); models.syncDynamic();
+  await models.warm().catch(() => {}); // live right now: no restart needed
+  res.json({ ok: true, models: models.pub(), detected: models.detected() });
 }));
 
 // Real test of every engine: lists its models, calls the one the chat would use, and reports the exact HTTP status.

@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
-  var S = { tone: localStorage.getItem('cz_tone') || '', autoCategory: localStorage.getItem('cz_auto_category') || 'censored', user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], imgs: [], bal: null };
+  var S = { autoOpen: true, tone: localStorage.getItem('cz_tone') || '', autoCategory: localStorage.getItem('cz_auto_category') || 'censored', user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], imgs: [], bal: null };
   var IC = {
     menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>',
     home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg>',
@@ -309,14 +309,31 @@
     rec.onend = function () { rec = null; mic && mic.classList.remove('rec'); ta.placeholder = S.imode ? 'Describe the image you want…' : 'Message CEASER AI…'; syncSend(); }; rec.onerror = function (e) { toast(e.error === 'not-allowed' ? 'Microphone permission denied.' : 'Voice input stopped.'); };
     try { rec.start(); mic.classList.add('rec'); ta.placeholder = 'Listening…'; toast('Listening — tap the mic again to stop'); } catch (e) { rec = null; }
   }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && S.user) api('GET', '/api/public/models').then(function (c) { S.models = c.models || S.models; }).catch(function () {}); });
   function modelSheet() {
-    var s = $('#sheet'), ms = S.models.length ? S.models : [], directRe = /wormgpt|llamacoder|qwen3-coder/i, safeRe = /^(qwen|chatai|chatbot|claude)$/i;
-    var direct = ms.filter(function (m) { return directRe.test(m.id); }), safe = ms.filter(function (m) { return safeRe.test(m.id); }), other = ms.filter(function (m) { return m.id !== 'auto' && !directRe.test(m.id) && !safeRe.test(m.id); });
+    var s = $('#sheet'), auto = !S.model || S.model === 'auto';
     function row(m) { var on = m.id === S.model; return '<button class="opt' + (on ? ' on' : '') + '" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(m.desc || '') + '</small></div><span class="ck">' + (on ? IC.ok : '') + '</span></button>'; }
-    function group(title, desc, key, list) { return '<section class="model-group"><button class="model-cat' + (S.autoCategory === key && (!S.model || S.model === 'auto') ? ' on' : '') + '" data-cat="' + key + '"><div><b>' + title + '</b><small>' + desc + '</small></div><span class="catcheck">' + (S.autoCategory === key && (!S.model || S.model === 'auto') ? IC.ok : '') + '</span></button><div class="model-engines"><small class="grp">' + (key === 'uncensored' ? 'Direct engines' : 'Protected engines') + '</small>' + (list.length ? list.map(row).join('') : '<p class="model-empty">Enable Omega AI to show its built-in engines.</p>') + '</div></section>'; }
-    s.innerHTML = '<div class="box"><h3>Auto routing</h3><p class="model-intro">Choose a category, then select an engine or leave Auto selected.</p>' + group('Censored', 'Normal, careful answers · Omega Qwen first', 'censored', safe) + group('Uncensored', 'Blunt, direct answers · Omega WormGPT first', 'uncensored', direct) + (other.length ? '<div class="model-group"><div class="grp">Other configured APIs</div>' + other.map(row).join('') + '</div>' : '') + '<button class="opt' + (S.tone === 'blunt' ? ' on' : '') + '" data-t="1"><div><b>Blunt style override</b><small>Use direct language while keeping safety boundaries</small></div><span class="ck">' + (S.tone === 'blunt' ? IC.ok : '') + '</span></button></div>';
-    s.hidden = false;
-    s.onclick = function (e) { var t = e.target.closest('[data-t]'); if (t) { S.tone = S.tone === 'blunt' ? '' : 'blunt'; localStorage.setItem('cz_tone', S.tone); toast(S.tone ? 'Blunt style on' : 'Blunt style off'); modelSheet(); return; } var c = e.target.closest('[data-cat]'); if (c) { S.model = 'auto'; S.autoCategory = c.dataset.cat; S.tone = S.autoCategory === 'uncensored' ? 'blunt' : ''; localStorage.setItem('cz_model', 'auto'); localStorage.setItem('cz_auto_category', S.autoCategory); localStorage.setItem('cz_tone', S.tone); var l0 = $('#ml'); if (l0) l0.textContent = modelLabel(); modelSheet(); return; } var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); s.hidden = true; } if (e.target === s) s.hidden = true; };
+    function cat(key, title, desc) { var on = auto && S.autoCategory === key; return '<button class="opt sub' + (on ? ' on' : '') + '" data-cat="' + key + '"><div><b>' + title + '</b><small>' + desc + '</small></div><span class="ck">' + (on ? IC.ok : '') + '</span></button>'; }
+    function paint() {
+      var groups = [], idx = {};
+      (S.models || []).forEach(function (m) { if (m.id === 'auto') return; var g = m.group || m.label; if (!(g in idx)) { idx[g] = groups.length; groups.push({ t: g, l: [] }); } groups[idx[g]].l.push(m); });
+      s.innerHTML = '<div class="box ms"><div class="ms-h"><h3>Choose model</h3><span class="ms-live"><i></i>' + groups.length + ' engine' + (groups.length === 1 ? '' : 's') + ' found</span></div>' +
+        '<button class="opt auto' + (auto ? ' on' : '') + '" data-auto="1"><div><b>Auto</b><small>Picks the best engine for every message</small></div><span class="chev' + (S.autoOpen ? ' up' : '') + '"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span></button>' +
+        '<div class="ms-subs' + (S.autoOpen ? ' open' : '') + '"><div>' + cat('censored', 'Censored', 'Careful, polished answers') + cat('uncensored', 'Uncensored', 'Blunt and direct, same safety rules') + '</div></div>' +
+        groups.map(function (g) { return '<div class="grp">' + esc(g.t) + '</div>' + g.l.map(row).join(''); }).join('') + '</div>';
+    }
+    paint(); s.hidden = false;
+    // always ask the server again: keys saved in Admin show up here instantly, no restart and no reload
+    api('GET', '/api/public/models').then(function (c) { S.models = c.models || S.models; if (!s.hidden) paint(); }).catch(function () {});
+    s.onclick = function (e) {
+      var au = e.target.closest('[data-auto]');
+      if (au) { S.autoOpen = !S.autoOpen || !auto; S.model = 'auto'; auto = true; localStorage.setItem('cz_model', 'auto'); var l1 = $('#ml'); if (l1) l1.textContent = modelLabel(); paint(); return; }
+      var c = e.target.closest('[data-cat]');
+      if (c) { S.model = 'auto'; S.autoCategory = c.dataset.cat; S.tone = S.autoCategory === 'uncensored' ? 'blunt' : ''; localStorage.setItem('cz_model', 'auto'); localStorage.setItem('cz_auto_category', S.autoCategory); localStorage.setItem('cz_tone', S.tone); var l0 = $('#ml'); if (l0) l0.textContent = modelLabel(); toast('Auto · ' + (S.autoCategory === 'uncensored' ? 'Uncensored' : 'Censored')); s.hidden = true; return; }
+      var b = e.target.closest('[data-m]');
+      if (b) { S.model = b.dataset.m; S.tone = ''; localStorage.setItem('cz_model', S.model); localStorage.setItem('cz_tone', ''); var l = $('#ml'); if (l) l.textContent = modelLabel(); s.hidden = true; return; }
+      if (e.target === s) s.hidden = true;
+    };
   }
   /* smooth "being written" effect. Text is revealed in small batches and the DOM is refreshed ~14x/second at most, so long code never makes the page lag */
   function typer(am, node, ms, th) {
@@ -521,11 +538,14 @@
     var data; try { data = await api('GET', '/api/admin/settings'); } catch (e) { $('#adm', w).innerHTML = '<p>' + esc(e.message) + '</p>'; return; }
     var orig = {};
     $('#adm', w).innerHTML = data.groups.map(function (g) { return '<div class="card"><h3>' + esc(g.title) + '</h3>' + g.fields.map(function (f) { orig[f.k] = f.value; return '<label class="afl"><span>' + esc(f.k) + (f.set ? ' <i class="aon">set</i>' : '') + '</span><input data-k="' + esc(f.k) + '" value="' + esc(f.value) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></label>'; }).join('') + '</div>'; }).join('') +
+      '<div class="card"><h3>Add a new AI</h3><p class="sb" style="margin:0 0 8px">Any OpenAI-compatible API. Fill the three boxes, press Save changes: it shows up in the model picker right away, no restart.</p><label class="afl"><span>Name (letters/numbers, e.g. ACME)</span><input id="nai-n" autocomplete="off" autocapitalize="characters" spellcheck="false"></label><label class="afl"><span>API key</span><input id="nai-k" autocomplete="off" autocapitalize="off" spellcheck="false"></label><label class="afl"><span>Base URL (e.g. https://api.acme.com/v1)</span><input id="nai-u" autocomplete="off" autocapitalize="off" spellcheck="false"></label></div>' +
       '<div class="card"><button class="btn" id="asv" style="width:100%">Save changes</button><div style="display:flex;gap:8px;margin-top:10px"><button class="btn g" id="ats" style="flex:1">Test engines</button><button class="btn g" id="ars" style="flex:1">Restart server</button></div><button class="btn g" id="ati" style="width:100%;margin-top:8px">Test image generation</button><div id="ares" class="ares"></div></div>';
     $('#asv', w).onclick = async function () {
       var vals = {}; w.querySelectorAll('input[data-k]').forEach(function (i) { if (i.value !== orig[i.dataset.k]) vals[i.dataset.k] = i.value; });
+      var nn = ($('#nai-n', w).value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), nk = $('#nai-k', w).value.trim(), nu = $('#nai-u', w).value.trim();
+      if (nn || nk || nu) { if (!nn || !nk) return toast('New AI needs a name and an API key'); vals[nn + '_API_KEY'] = nk; if (nu) vals[nn + '_BASE_URL'] = nu; }
       if (!Object.keys(vals).length) return toast('Nothing changed');
-      try { await api('POST', '/api/admin/settings', { values: vals }); toast('Saved ✓'); try { var c = await api('GET', '/api/public/config'); S.models = c.models || []; } catch (e) {} renderAdmin(main); } catch (e) { toast(e.message); }
+      try { var sv = await api('POST', '/api/admin/settings', { values: vals }); S.models = sv.models || S.models; toast('Saved · live now' + (sv.detected ? ' · ' + sv.detected.length + ' engines' : '')); renderAdmin(main); } catch (e) { toast(e.message); }
     };
     $('#ats', w).onclick = async function () {
       var b = this, r = $('#ares', w); b.disabled = true; b.textContent = 'Testing…'; r.innerHTML = '';

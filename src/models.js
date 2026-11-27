@@ -35,10 +35,26 @@ const PROVIDERS = {
   custom:     { key: 'CUSTOM_API_KEY',     type: OA, label: 'Custom',        base: () => process.env.CUSTOM_BASE_URL || '',                                    model: () => '' },
 };
 Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : k === 'omega' ? 'OMEGA' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
+// ---- auto-detect ANY extra AI from the environment (Render dashboard, .env or Admin panel) ----
+// Rule: NAME_API_KEY (+ NAME_BASE_URL for an OpenAI-compatible endpoint, or a name from WELL_KNOWN below) => it appears in the picker. No code change, no restart.
+const WELL_KNOWN = { SAMBANOVA: 'https://api.sambanova.ai/v1', DEEPINFRA: 'https://api.deepinfra.com/v1/openai', HYPERBOLIC: 'https://api.hyperbolic.xyz/v1', NOVITA: 'https://api.novita.ai/v3/openai', MOONSHOT: 'https://api.moonshot.ai/v1', SILICONFLOW: 'https://api.siliconflow.com/v1', GLHF: 'https://glhf.chat/api/openai/v1', LAMBDA: 'https://api.lambda.ai/v1', FRIENDLI: 'https://api.friendli.ai/serverless/v1', GITHUB: 'https://models.github.ai/inference' };
+const KNOWN_ENV = new Set(Object.values(PROVIDERS).map((P) => P.key).filter(Boolean));
+const KNOWN_PREFIX = new Set(Object.values(PROVIDERS).map((P) => P.prefix));
+function syncDynamic() {
+  Object.keys(PROVIDERS).forEach((id) => { const P = PROVIDERS[id]; if (P.dynamic && !String(process.env[P.key] || '').trim()) delete PROVIDERS[id]; });
+  Object.keys(process.env).forEach((k) => {
+    const m = /^([A-Z][A-Z0-9]{1,24})_API_KEY$/.exec(k); if (!m) return;
+    const name = m[1], id = name.toLowerCase();
+    if (PROVIDERS[id] || KNOWN_ENV.has(k) || KNOWN_PREFIX.has(name) || !String(process.env[k] || '').trim()) return;
+    if (!(String(process.env[name + '_BASE_URL'] || '').trim() || WELL_KNOWN[name])) return;
+    PROVIDERS[id] = { id, prefix: name, key: k, type: OA, dynamic: true, label: name.charAt(0) + name.slice(1).toLowerCase(),
+      base: () => String(process.env[name + '_BASE_URL'] || WELL_KNOWN[name] || '').trim(), model: () => String(process.env[name + '_MODEL'] || '').trim() || 'auto-detect' };
+  });
+}
 // keys pasted into dashboards often carry quotes, spaces or a trailing newline: strip them so the provider does not answer 401
 const clean = (v) => String(v == null ? '' : v).trim().replace(/^["']|["']$/g, '').trim();
 const keyOf = (P) => (P && P.key ? clean(process.env[P.key]) : '');
-const hasKey = (p) => { const P = PROVIDERS[p]; if (!P) return false; if (p === 'omega') return /^(on|1|true|yes)$/i.test(clean(process.env.OMEGA_AI)); if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
+const hasKey = (p) => { syncDynamic(); const P = PROVIDERS[p]; if (!P) return false; if (p === 'omega') return /^(on|1|true|yes)$/i.test(clean(process.env.OMEGA_AI)); if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
 // ---- dynamic model discovery: providers retire models often (Groq/Gemini/NVIDIA all 404/410 on old names), so ask the provider what it has ----
 const found = {}, cooled = {};
 const BADM = /embed|whisper|tts|guard|moderat|rerank|image|audio|safety|orpheus|transcri|dall|clip|ocr|parse|retriev|vision-preview|imagen|veo|live|robotics|aqa|learnlm|gemma-?\d*n?-?it?$/i;
@@ -73,10 +89,11 @@ const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
 // default model id(s) of a provider: <PREFIX>_MODELS="a,b,c"  or  <PREFIX>_MODEL=a  or built-in default
 function idsOf(p) {
   const P = PROVIDERS[p], list = process.env[P.prefix + '_MODELS'], one = process.env[P.prefix + '_MODEL'];
-  const ids = p === 'omega' && !list ? ['WormGPT', 'Qwen3-coder', 'Qwen', 'Claude', 'Chatai', 'Chatbot', 'llamacoder'] : list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || P.model()].filter(Boolean);
+  const ids = p === 'omega' && !list ? ['Qwen', 'Qwen3-coder', 'Chatai', 'Chatbot', 'Claude'] : list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || (P.dynamic && found[p]) || P.model()].filter(Boolean);
   return ids;
 }
 function all() {
+  syncDynamic();
   const out = [];
   if (process.env.AI_MODELS) {
     process.env.AI_MODELS.split(';').map((x) => x.trim()).filter(Boolean).forEach((x) => {
@@ -92,6 +109,7 @@ function all() {
   return out;
 }
 function autoProvider() {
+  syncDynamic();
   const want = (process.env.AUTO_PROVIDER || 'manus').toLowerCase();
   if (hasKey(want)) return want;
   return Object.keys(PROVIDERS).find(hasKey) || null; // no keys at all -> the free public AI keeps the app working
@@ -121,6 +139,7 @@ function categoryOf(text, tone) {
   return tone === 'blunt' || /\b(uncensored|unfiltered|no filter|brutal(?:ly)? honest|roast|swear|curse|harsh|edgy)\b/i.test(t) ? 'uncensored' : 'censored';
 }
 function chainFor(kind, vision, category) {
+  syncDynamic();
   const ok = (p) => PROVIDERS[p] && hasKey(p) && !isCooled(p) && (!vision || PROVIDERS[p].vision);
   const keyed = Object.keys(PROVIDERS).filter((p) => ok(p) && !PROVIDERS[p].free && p !== 'custom');
   let pref;
@@ -135,7 +154,7 @@ function chainFor(kind, vision, category) {
   const add = (p) => { if (ok(p) && out.indexOf(p) < 0) out.push(p); };
   if (hasKey('omega')) {
     const omegaIds = idsOf('omega').map((x) => x.toLowerCase());
-    const preferred = category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder'] : ['qwen', 'chatai', 'chatbot', 'claude'];
+    const preferred = ['qwen', 'qwen3-coder', 'chatai', 'chatbot', 'claude'];
     if (preferred.some((x) => omegaIds.includes(x))) add('omega');
   }
   pref.forEach(add);
@@ -153,7 +172,7 @@ function plan(reqId, text, hasImage, tone) {
   }
   const kind = intent(text);
   const category = categoryOf(text, tone);
-  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen') : (idsOf(p)[0] || ''), cost: 1, label: PROVIDERS[p].label }));
+  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? 'Qwen' : (idsOf(p)[0] || ''), cost: 1, label: PROVIDERS[p].label }));
   if (!chain.length) { const f = find(reqId); return f ? { kind, category, auto: true, chain: [{ provider: f.provider, model: f.id, cost: f.cost || 1, label: PROVIDERS[f.provider].label }] } : null; }
   return { kind, category, auto: true, chain };
 }
@@ -161,13 +180,19 @@ const list = () => {
   const ap = autoProvider(); if (!ap) return [];
   const autoModel = idsOf(ap)[0] || '';
   const auto = { id: 'auto', label: 'Auto', desc: 'Automatically classifies censored/direct style and picks the matching engine', provider: ap, cost: 1, model: autoModel };
-  const rest = all().filter((m) => hasKey(m.provider) && !(m.provider === ap && m.id === autoModel));
+  const rest = all().filter((m) => hasKey(m.provider)); // every keyed engine stays visible, Auto is its own entry
   return [auto].concat(rest);
 };
-const pub = () => list().map(({ id, label, desc, cost, provider }) => ({ id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'free / normal cost'), cost, group: id === 'auto' ? 'Smart' : (PROVIDERS[provider] ? PROVIDERS[provider].label : 'Other') }));
+const pub = () => list().map(({ id, label, desc, cost, provider }) => ({ provider, id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'free / normal cost'), cost, group: id === 'auto' ? 'Smart' : (PROVIDERS[provider] ? PROVIDERS[provider].label : 'Other') }));
 function find(id) {
   const l = list(); if (!l.length) return null;
   const m = (id && l.find((x) => x.id === id)) || l[0];
   return m.id === 'auto' ? Object.assign({}, m, { id: m.model }) : m;
 }
-module.exports = { list, pub, find, plan, intent, categoryOf, PROVIDERS, keyOf, hasKey, idsOf, discover, modelFor, cool, reset, good };
+// ask every keyed provider which models it really has right now (run at boot and right after an Admin save)
+async function warm() {
+  syncDynamic();
+  await Promise.all(Object.keys(PROVIDERS).filter((p) => hasKey(p) && PROVIDERS[p].type === 'openai' && !PROVIDERS[p].free && !process.env[PROVIDERS[p].prefix + '_MODEL'] && !process.env[PROVIDERS[p].prefix + '_MODELS']).map((p) => discover(p).catch(() => null)));
+}
+const detected = () => { syncDynamic(); return Object.keys(PROVIDERS).filter((p) => hasKey(p)).map((p) => ({ id: p, label: PROVIDERS[p].label, free: !!PROVIDERS[p].free })); };
+module.exports = { warm, detected, syncDynamic, list, pub, find, plan, intent, categoryOf, PROVIDERS, keyOf, hasKey, idsOf, discover, modelFor, cool, reset, good };

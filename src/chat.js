@@ -257,9 +257,9 @@ async function streamReply(req, res, conv) {
     const rawPrompt = splitImages(lastRaw).text.slice(0, 1800);
     const prompt = pl.category === 'uncensored' ? 'Answer in a harsh, blunt, direct style with no filler. Keep the same safety boundaries and do not assist harmful or illegal acts.\n\nUser request:\n' + rawPrompt : rawPrompt;
     const q = encodeURIComponent(prompt.slice(0, 2200)), m = String(model || 'Qwen3-coder').toLowerCase();
-    const makeRoute = (name) => ({ wormgpt: `/api/ai/wormgpt?action=chat&message=${q}&newChat=true&forceNew=true`, 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
+    const makeRoute = (name) => ({ 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
       chatai: `/api/ai/Chatai?action=chat&message=${q}&model=chatgpt`, chatbot: `/api/ai/Chatbot?action=chat&message=${q}&needSearch=false`, llamacoder: `/api/ai/llamacoder?action=create&prompt=${q}&quality=high` }[name]);
-    const pool = pl.category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder'] : ['qwen', 'chatai', 'chatbot', 'claude'];
+    const pool = ['qwen', 'qwen3-coder', 'chatai', 'chatbot', 'claude'];
     const candidates = [m].concat(pool.filter((x) => x !== m));
     const pick = (v, d) => { if (typeof v === 'string') return v; if (!v || typeof v !== 'object' || d > 3) return ''; for (const k of ['result', 'response', 'message', 'answer', 'reply', 'text', 'content', 'output', 'data']) { const t = pick(v[k], d + 1); if (t) return t; } return ''; };
     let out = '', lastErr = null;

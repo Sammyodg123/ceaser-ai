@@ -63,3 +63,9 @@ Money lands in the account that owns the app.
 ## Not built yet
 Projects generator, file uploads, teams, API keys (v1), admin panel, Google login. Those return "not available".
 Prices/allowances: edit PLANS in `src/core.js`.
+
+## Adding AIs (v15) — no restart
+Every provider whose key is found in the environment (Render dashboard, `.env`, or Admin panel) shows up in the chat's model picker automatically.
+Extra AIs not built in: set `NAME_API_KEY` + `NAME_BASE_URL` (any OpenAI-compatible API; a few names like SAMBANOVA, DEEPINFRA, HYPERBOLIC need only the key).
+In Admin → "Add a new AI" → Save changes: live immediately. Render dashboard edits still need Render's own redeploy.
+Auto → Censored / Uncensored only changes the answer style (blunt vs polished); the same safety rules apply to both.

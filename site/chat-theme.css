@@ -1,0 +1,91 @@
+/* CEASER AI chat theme v15 — cool, clean, dynamic. Loaded AFTER chat.css so it wins.
+   Rules of the road: only transform/opacity animate, no backdrop-filter, no layout thrash => smooth on phones. */
+:root{
+  --bg:#05070e;--card:#0b0f1a;--soft:#121827;--line:rgba(160,185,255,.09);--tx:#eef2fb;--mu:#8793ab;
+  --ac:#35f0b0;--ac2:#4aa8ff;--vi:#8b7bff;--acs:rgba(53,240,176,.10);
+  --grad:linear-gradient(135deg,#35f0b0 0%,#4aa8ff 55%,#8b7bff 100%);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+
+/* ---------- native-app feel: nothing moves except the inner scrollers ---------- */
+html,body{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+body{background:#05070e;-webkit-user-select:none;user-select:none}
+.msgs,.page,.hist,.navs,.sheet .box,.pop{-webkit-user-select:text;user-select:text}
+button,.top,.drawer,.dock,.sug{-webkit-user-select:none;user-select:none}
+textarea,input{-webkit-user-select:text;user-select:text}
+.msgs,.page,.hist,.navs,.sheet .box{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.msgs::-webkit-scrollbar,.page::-webkit-scrollbar,.hist::-webkit-scrollbar,.navs::-webkit-scrollbar{display:none}
+.shell{position:fixed;inset:0;height:auto}
+.dock{padding-bottom:calc(var(--sb) + 8px);background:linear-gradient(to top,#05070e 62%,rgba(5,7,14,0))}
+
+/* ---------- ambient background: two soft light pools drifting slowly (GPU transform only) ---------- */
+html:before,html:after{content:"";position:fixed;z-index:0;pointer-events:none;width:120vmax;height:120vmax;border-radius:50%;will-change:transform;opacity:.9}
+html:before{left:-70vmax;top:-80vmax;background:radial-gradient(closest-side,rgba(53,240,176,.13),transparent 70%);animation:czdrift1 26s ease-in-out infinite alternate}
+html:after{right:-75vmax;bottom:-85vmax;background:radial-gradient(closest-side,rgba(139,123,255,.16),transparent 70%);animation:czdrift2 31s ease-in-out infinite alternate}
+@keyframes czdrift1{to{transform:translate3d(32vmax,22vmax,0) scale(1.15)}}
+@keyframes czdrift2{to{transform:translate3d(-28vmax,-24vmax,0) scale(1.1)}}
+.shell,#boot{z-index:1}
+.col,.top,.msgs,.dock{position:relative;z-index:1;background:transparent}
+
+/* ---------- header ---------- */
+.top{border-bottom:1px solid var(--line);background:linear-gradient(to bottom,rgba(8,11,20,.96),rgba(8,11,20,.72))}
+.ttl .mk{background:var(--grad);box-shadow:0 6px 18px -6px rgba(74,168,255,.7)}
+.wm b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ---------- messages ---------- */
+.m.user .c{background:linear-gradient(135deg,rgba(53,240,176,.14),rgba(74,168,255,.16) 60%,rgba(139,123,255,.16));border:1px solid rgba(120,170,255,.22);color:#f4f7ff;box-shadow:0 8px 24px -16px rgba(74,168,255,.6)}
+.m.assistant .ai{background:var(--grad);color:#04130d;box-shadow:0 6px 16px -6px rgba(53,240,176,.6)}
+.msgs .m:last-child{animation:czrise .45s var(--ease) both}
+@keyframes czrise{from{opacity:0;transform:translate3d(0,10px,0)}}
+.cb{border-color:var(--line);background:#080c16}
+.chip,.sug button{background:rgba(14,19,32,.82);border:1px solid var(--line);transition:transform .25s var(--ease),border-color .25s,background .25s}
+.chip:hover,.sug button:hover{border-color:rgba(74,168,255,.55);background:rgba(74,168,255,.07);transform:translate3d(0,-2px,0)}
+.chip:active,.sug button:active{transform:scale(.97)}
+
+/* ---------- composer ---------- */
+.comp{background:rgba(12,16,28,.94);border:1px solid var(--line);border-radius:26px;box-shadow:0 14px 40px -22px rgba(74,168,255,.55);transition:border-color .25s,box-shadow .25s}
+.comp:focus-within{border-color:rgba(74,168,255,.6);box-shadow:0 0 0 3px rgba(74,168,255,.12),0 16px 44px -20px rgba(53,240,176,.55)}
+.send{background:var(--grad);color:#04130d;box-shadow:0 6px 18px -6px rgba(74,168,255,.8);transition:transform .2s var(--ease),opacity .2s,box-shadow .2s}
+.send:active{transform:scale(.88)}
+.send:not(:disabled):hover{box-shadow:0 8px 22px -4px rgba(53,240,176,.8)}
+
+/* ---------- drawer & sheets ---------- */
+.drawer{background:linear-gradient(180deg,#080c17,#060912);border-right:1px solid var(--line)}
+.sheet{background:rgba(2,4,10,.66)}
+.sheet .box{background:linear-gradient(180deg,#0e1424,#0a0f1c);border:1px solid var(--line);border-bottom:0;box-shadow:0 -24px 60px -20px rgba(74,168,255,.25);max-height:86dvh;overflow-y:auto}
+.sheet .opt{transition:background .2s,transform .15s var(--ease)}
+.sheet .opt:active{transform:scale(.985)}
+.sheet .opt.on{background:linear-gradient(90deg,rgba(53,240,176,.14),rgba(74,168,255,.08))}
+.ck{color:var(--ac);display:grid;place-items:center;min-width:20px}
+
+/* ---------- model picker (Auto -> Censored / Uncensored) ---------- */
+.ms-h{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 6px}
+.ms-h h3{margin:6px 4px 6px;font-size:18px;letter-spacing:-.01em}
+.ms-live{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:#9fe9cf;background:rgba(53,240,176,.08);border:1px solid rgba(53,240,176,.2);padding:5px 10px;border-radius:99px}
+.ms-live i{width:6px;height:6px;border-radius:50%;background:var(--ac);box-shadow:0 0 8px var(--ac);animation:czblink 1.8s ease-in-out infinite}
+@keyframes czblink{50%{opacity:.35}}
+.sheet .opt.auto{background:linear-gradient(135deg,rgba(53,240,176,.10),rgba(139,123,255,.10));border:1px solid rgba(120,170,255,.16);margin-bottom:2px}
+.sheet .opt.auto.on{border-color:rgba(53,240,176,.45)}
+.chev{margin-left:auto;display:grid;place-items:center;transition:transform .3s var(--ease);color:var(--mu)}
+.chev svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.chev.up{transform:rotate(180deg);color:var(--ac)}
+.ms-subs{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s var(--ease)}
+.ms-subs.open{grid-template-rows:1fr}
+.ms-subs>div{overflow:hidden;min-height:0;margin-left:18px;border-left:2px solid rgba(74,168,255,.25);padding-left:6px}
+.sheet .opt.sub{padding:10px 12px}
+.sheet .opt.sub small{font-size:11.5px}
+.sheet .grp{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#6f7c96;padding:14px 8px 4px}
+
+/* ---------- loading / boot screen: conic ring, clean ---------- */
+#boot{background:radial-gradient(60% 45% at 50% 38%,rgba(74,168,255,.14),transparent 70%),#04060c}
+#boot .bt-aurora{opacity:.7}
+.bt-core{width:132px;height:132px}
+.bt-ring{border:0;background:conic-gradient(from 0deg,transparent 0 30%,#35f0b0 62%,#4aa8ff 82%,#8b7bff 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));box-shadow:none}
+.bt-ring.r1{inset:0;animation:btspin 1.25s linear infinite}
+.bt-ring.r2{inset:12px;animation:btspin 1.9s linear infinite reverse;opacity:.75;filter:hue-rotate(40deg)}
+.bt-ring.r3{inset:24px;animation:btspin 2.7s linear infinite;opacity:.5}
+.bt-logo{background:var(--grad);box-shadow:0 0 40px -6px rgba(74,168,255,.8)}
+.bt-logo span{background:#070b14;color:#35f0b0}
+.bt-bar i{background:var(--grad)}
+
+@media (prefers-reduced-motion:reduce){html:before,html:after,.ms-live i{animation:none}.msgs .m:last-child{animation:none}}
