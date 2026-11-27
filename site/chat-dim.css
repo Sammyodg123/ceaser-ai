@@ -88,3 +88,20 @@ html:after{background:radial-gradient(closest-side,rgba(30,170,230,.13),transpar
 .m.assistant .body>p,.m.assistant .body>ul,.m.assistant .body>ol,.m.assistant .body>h1,.m.assistant .body>h2,.m.assistant .body>h3,.m.assistant .macts{margin-left:56px}
 .m.assistant .macts{margin-left:50px}
 @media (max-width:380px){.m.assistant .body>p,.m.assistant .body>ul,.m.assistant .body>ol,.m.assistant .body>h1,.m.assistant .body>h2,.m.assistant .body>h3{margin-left:0}.m.assistant .macts{margin-left:0}}
+
+/* ===== admin: users & points ===== */
+.usq{width:100%;min-height:46px;padding:0 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:inherit;font:inherit;font-size:16px;outline:none;margin-bottom:8px}
+.usq:focus{border-color:rgba(63,220,170,.5)}
+.usn{font-size:12px;color:var(--mu);margin:0 2px 8px}
+.urow{padding:12px;margin-bottom:10px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.035)}
+.uh{display:flex;align-items:center;gap:10px}
+.uav{flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:800;color:#04221b;background:linear-gradient(135deg,#3fdcaa,#46a0f0)}
+.ui{min-width:0;flex:1}.ui b{display:block;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ui small{display:block;color:var(--mu);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uvn{font-style:normal;font-size:10px;color:#ffb36b;border:1px solid rgba(255,179,107,.4);border-radius:99px;padding:1px 6px;margin-left:4px}
+.upt{text-align:right;flex:none}.upt .pv{display:block;font-size:19px;font-weight:800;color:var(--ac);font-variant-numeric:tabular-nums}.upt small{color:var(--mu);font-size:11px}
+.ug{display:flex;gap:6px;margin-top:10px}
+.ug button{min-height:40px;padding:0 11px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#cdd7ee;font-weight:600;font-size:13px}
+.ug button:active{transform:scale(.95)}
+.ug input{flex:1;min-width:0;min-height:40px;padding:0 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:inherit;font-size:16px;outline:none}
+.ug .go{background:linear-gradient(100deg,#3fdcaa,#46a0f0);color:#04210f;border:0}

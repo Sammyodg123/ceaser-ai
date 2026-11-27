@@ -587,6 +587,8 @@
   /* ---------- admin: edit API keys from inside the app, test engines, restart ---------- */
   async function renderAdmin(main) {
     var w = page(main, '<h1>Admin</h1><p class="sb">Edit API keys and routing here. Changes apply instantly. Leave a field empty and save to remove it.</p><div id="adm"><p style="color:var(--mu)">Loading…</p></div>');
+    var uc = el('<div class="card ucard"><h3>Users &amp; points</h3><p class="sb" style="margin:0 0 10px">Everyone who signed up and what they have left. Give points with the box, or use a quick button. Use a minus sign to take points back.</p><input class="usq" id="usq" placeholder="Search name or email…" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="usn" id="usn"></div><div id="usl"></div></div>');
+    w.insertBefore(uc, $('#adm', w)); loadUsers(uc);
     var data; try { data = await api('GET', '/api/admin/settings'); } catch (e) { $('#adm', w).innerHTML = '<p>' + esc(e.message) + '</p>'; return; }
     var orig = {};
     $('#adm', w).innerHTML = data.groups.map(function (g) { return '<div class="card"><h3>' + esc(g.title) + '</h3>' + g.fields.map(function (f) { orig[f.k] = f.value; return '<label class="afl"><span>' + esc(f.k) + (f.set ? ' <i class="aon">set</i>' : '') + '</span><input data-k="' + esc(f.k) + '" value="' + esc(f.value) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></label>'; }).join('') + '</div>'; }).join('') +
@@ -610,6 +612,37 @@
       b.disabled = false; b.textContent = 'Test image generation';
     };
     $('#ars', w).onclick = async function () { if (!confirm('Restart the server now? It is back in about 30 seconds.')) return; try { await api('POST', '/api/admin/restart'); toast('Restarting… reload in 30s'); } catch (e) { toast(e.message); } };
+  }
+  async function loadUsers(card) {
+    var list = card.querySelector('#usl'), note = card.querySelector('#usn'), q = card.querySelector('#usq'), tm = 0;
+    function fmt(n) { return Number(n).toLocaleString(); }
+    async function load() {
+      list.innerHTML = '<p style="color:var(--mu)">Loading…</p>';
+      try {
+        var r = await api('GET', '/api/admin/users?q=' + encodeURIComponent(q.value.trim()));
+        note.textContent = r.count + ' user' + (r.count === 1 ? '' : 's') + (r.count > r.users.length ? ' · showing ' + r.users.length + ', search to narrow' : '');
+        list.replaceChildren();
+        r.users.forEach(function (u) { list.appendChild(row(u)); });
+        if (!r.users.length) list.innerHTML = '<p style="color:var(--mu)">No users found.</p>';
+      } catch (e) { list.innerHTML = '<p>' + esc(e.message) + '</p>'; }
+    }
+    function row(u) {
+      var n = el('<div class="urow"><div class="uh"><div class="uav">' + esc((u.name || u.email || '?').trim().charAt(0).toUpperCase()) + '</div><div class="ui"><b>' + esc(u.name || '(no name)') + (u.role === 'admin' ? ' <i class="aon">admin</i>' : '') + (u.verified ? '' : ' <i class="uvn">unverified</i>') + '</b><small>' + esc(u.email) + '</small></div><div class="upt"><b class="pv">' + (u.unlimited ? '∞' : fmt(u.remaining)) + '</b><small>' + esc(u.plan) + (u.unlimited ? ' · owner' : ' · left') + '</small></div></div>' +
+        '<div class="ug"><button data-g="1000">+1k</button><button data-g="10000">+10k</button><button data-g="100000">+100k</button><input type="number" inputmode="numeric" placeholder="points" aria-label="Points"><button class="go">Give</button></div></div>');
+      var inp = n.querySelector('input');
+      async function give(amount) {
+        if (!amount) return toast('Enter a number of points');
+        try {
+          var r = await api('POST', '/api/admin/users/' + u.id + '/points', { amount: amount });
+          var p = n.querySelector('.pv'); if (!r.user.unlimited) p.textContent = fmt(r.user.remaining); inp.value = '';
+          toast((amount > 0 ? 'Gave ' : 'Took ') + fmt(Math.abs(amount)) + ' points · ' + (r.user.name || r.user.email));
+        } catch (e) { toast(e.message); }
+      }
+      n.querySelector('.ug').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; if (b.dataset.g) give(+b.dataset.g); else give(Math.trunc(Number(inp.value))); };
+      return n;
+    }
+    q.oninput = function () { clearTimeout(tm); tm = setTimeout(load, 300); };
+    load();
   }
   function renderTeam(main) {
     var u = S.user, w = page(main, '<a class="btn g back" href="/" style="text-decoration:none">' + IC.back + 'Home</a><h1>Team</h1><p class="sb">Shared workspaces are in development.</p>' +

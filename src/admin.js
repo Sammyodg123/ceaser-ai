@@ -2,7 +2,7 @@
 // Values are saved to <data dir>/settings.json and applied to process.env immediately (no redeploy needed).
 // NOTE: on Render's free plan the disk is wiped on redeploy, so keep a copy of important keys in Render's Environment tab too.
 const express = require('express'), fs = require('fs'), path = require('path');
-const { cfg, HttpError, wrap, isAdminEmail } = require('./core');
+const { cfg, HttpError, wrap, isAdminEmail, db, balanceOf } = require('./core');
 const models = require('./models');
 const router = express.Router();
 const FILE = path.join(path.dirname(path.resolve(process.env.DB_PATH || './data/app.db')), 'settings.json');
@@ -75,6 +75,22 @@ router.post('/test', wrap(async (req, res) => {
   res.json({ results });
 }));
 
+// ---- users: see everyone with their remaining points, and give (or take back) points ----
+const userRow = (u) => { const b = balanceOf(u); return { id: u.id, name: u.name, email: u.email, plan: u.plan, role: u.role, verified: !!u.email_verified, createdAt: u.created_at, unlimited: !!b.unlimited, remaining: b.unlimited ? null : b.remaining, total: b.unlimited ? null : b.total, bonus: u.bonus }; };
+router.get('/users', (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const rows = db.prepare('SELECT * FROM users ORDER BY created_at DESC LIMIT 1000').all()
+    .filter((u) => !q || String(u.email).toLowerCase().includes(q) || String(u.name || '').toLowerCase().includes(q));
+  res.json({ count: rows.length, users: rows.slice(0, 300).map(userRow) });
+});
+router.post('/users/:id/points', (req, res) => {
+  const amount = Math.trunc(Number(req.body.amount));
+  if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100000000) throw new HttpError(400, 'invalid_input', 'Enter a whole number of points (use a minus sign to take points away).');
+  const u = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id);
+  if (!u) throw new HttpError(404, 'not_found', 'User not found.');
+  db.prepare('UPDATE users SET bonus=MAX(0, bonus+?) WHERE id=?').run(amount, u.id);
+  res.json({ ok: true, user: userRow(db.prepare('SELECT * FROM users WHERE id=?').get(u.id)) });
+});
 router.post('/restart', (req, res) => { res.json({ ok: true }); setTimeout(() => process.exit(0), 500); }); // the host (Render) starts it again automatically
 
 module.exports = router;
