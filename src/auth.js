@@ -125,4 +125,30 @@ router.patch('/profile', requireUser, wrap(async (req, res) => {
   res.json({ user: userDTO(db.prepare('SELECT * FROM users WHERE id=?').get(u.id)) });
 }));
 
+// Profile + password management (used by the Settings page)
+const saveProfile = wrap(async (req, res) => {
+  const { name, locale, preferences } = req.body, u = req.user;
+  db.prepare('UPDATE users SET name=?, locale=?, ai_language=? WHERE id=?').run(
+    name?.trim() ? name.trim().slice(0, 80) : u.name, locale === 'fr' ? 'fr' : locale === 'en' ? 'en' : u.locale,
+    preferences?.aiLanguage ? String(preferences.aiLanguage).slice(0, 20) : u.ai_language, u.id);
+  res.json({ user: userDTO(db.prepare('SELECT * FROM users WHERE id=?').get(u.id)) });
+});
+router.patch('/me', requireUser, saveProfile);
+router.post('/change-password', limiter, requireUser, wrap(async (req, res) => {
+  const { currentPassword, newPassword } = req.body, u = req.user;
+  if (!newPassword || String(newPassword).length < 8) throw new HttpError(400, 'weak_password', 'New password must be at least 8 characters.');
+  if (!u.pass || !(await bcrypt.compare(String(currentPassword || ''), u.pass))) throw new HttpError(401, 'invalid_credentials', 'Current password is incorrect.');
+  db.prepare('UPDATE users SET pass=? WHERE id=?').run(await bcrypt.hash(String(newPassword), 12), u.id);
+  const keep = req.cookies.cc_session ? sha(req.cookies.cc_session) : '';
+  db.prepare('DELETE FROM sessions WHERE user_id=? AND hash<>?').run(u.id, keep); // sign out other devices
+  res.json({ ok: true });
+}));
+router.delete('/me', limiter, requireUser, wrap(async (req, res) => {
+  const uid = req.user.id;
+  for (const t of ['sessions', 'otp']) { try { db.prepare(`DELETE FROM ${t} WHERE user_id=?`).run(uid); } catch {} }
+  try { db.prepare('DELETE FROM conversations WHERE user_id=?').run(uid); } catch {}
+  db.prepare('DELETE FROM users WHERE id=?').run(uid);
+  res.clearCookie('cc_session', cookieOpts); res.json({ ok: true });
+}));
+
 module.exports = { router, loadUser, requireUser, requireVerified, requireAdmin };

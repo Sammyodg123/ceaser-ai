@@ -7,6 +7,7 @@ const { cfg, PLANS, db, HttpError, wrap, balanceOf } = require('./core');
 const auth = require('./auth');
 const chat = require('./chat');
 const billing = require('./billing');
+const { MODELS } = require('./models');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -37,6 +38,7 @@ app.get('/api/public/config', (req, res) => res.json({
   payments: { stripe: cfg.stripe, paypal: cfg.paypal },
   voice: { transcription: false },
   plans: PLANS,
+  models: MODELS,
 }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/tokens', auth.requireUser, (req, res) => res.json({ balance: balanceOf(req.user) }));

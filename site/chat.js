@@ -21,6 +21,13 @@
     chev: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
     ok: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
     bolt: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
+    out: '<svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+    lock: '<svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+    card: '<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+    eye: '<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    back: '<svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
     tag: '<svg viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.2"/></svg>'
   };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -66,24 +73,31 @@
   }
 
   /* ---------- shell / drawer ---------- */
-  var NAV = [['chat', 'chat', 'New chat'], ['templates', 'tpl', 'AI Templates'], ['dashboard', 'dash', 'Dashboard'], ['referrals', 'gift', 'Referrals'], ['team', 'team', 'Team'], ['settings', 'set', 'Settings']];
+  var NAV = [['templates', 'tpl', 'AI Templates'], ['dashboard', 'dash', 'Dashboard'], ['plan', 'card', 'Plan & usage'], ['referrals', 'gift', 'Referrals'], ['team', 'team', 'Team'], ['settings', 'set', 'Settings']];
   var shell = $('#shell');
   function navOpen(o) { shell.classList.toggle('nav-open', o); }
   function buildDrawer() {
-    var u = S.user, d = $('#drawer');
-    d.innerHTML = '<div class="brand"><i>C</i>CEASER <small>AI</small></div>' +
-      '<a class="nv" href="/" style="text-decoration:none">' + IC.home + 'Home</a>' +
-      NAV.map(function (n) { return '<button class="nv' + (S.page === n[0] ? ' on' : '') + '" data-p="' + n[0] + '">' + IC[n[1]] + n[2] + '</button>'; }).join('') +
+    var u = S.user, d = $('#drawer'), q = (S.q || '');
+    d.innerHTML = '<div class="brand"><i>C</i>CEASER <small>AI</small><button class="clp" id="col" aria-label="Close menu">' + IC.menu + '</button></div>' +
+      '<button class="nv newc' + (S.page === 'chat' && !S.cur ? ' on' : '') + '" data-p="chat">' + IC.chat + 'New chat</button>' +
+      '<label class="srch">' + IC.search + '<input id="sq" placeholder="Search chats" autocomplete="off" value="' + esc(q) + '"><kbd>⌘K</kbd></label>' +
       '<div class="sect">RECENT</div><div class="hist" id="hist"></div>' +
+      '<div class="navs">' + NAV.map(function (n) { return '<button class="nv' + (S.page === n[0] ? ' on' : '') + '" data-p="' + n[0] + '">' + IC[n[1]] + n[2] + '</button>'; }).join('') +
+      '<a class="home" href="/">' + IC.back + 'Back to home</a></div>' +
       '<div class="tk" id="tk"></div>' +
-      '<div class="me"><div class="av">' + esc((u.name || '?').charAt(0).toUpperCase()) + '</div><div class="n">' + esc(u.name) + '<small>' + esc(u.email) + '</small></div></div><button class="nv so" id="lo"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign out</button>';
-    d.onclick = function (e) { var b = e.target.closest('[data-p]'); if (b) go(b.dataset.p); else if (e.target.closest('a.nv') && innerWidth < 960) navOpen(false); };
-    $('#lo').onclick = async function () { try { await api('POST', '/api/auth/logout'); } catch (e) {} location.href = '/'; };
+      '<div class="me"><div class="av">' + esc((u.name || '?').charAt(0).toUpperCase()) + '</div><div class="n">' + esc(u.name) + '<small>' + esc(u.email) + '</small></div><button class="out" id="lo" aria-label="Sign out" title="Sign out">' + IC.out + '</button></div>';
+    d.onclick = function (e) { var b = e.target.closest('[data-p]'); if (b) go(b.dataset.p); else if (e.target.closest('#col')) navOpen(false); else if (e.target.closest('a.home') && innerWidth < 960) navOpen(false); };
+    $('#sq').oninput = function () { S.q = this.value; renderHist(); };
+    $('#lo').onclick = signOut;
     renderHist(); renderTk();
   }
+  async function signOut() { try { await api('POST', '/api/auth/logout'); } catch (e) {} location.replace('/'); }
+  addEventListener('keydown', function (e) { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); navOpen(true); var i = $('#sq'); if (i) i.focus(); } });
   function renderHist() {
     var h = $('#hist'); if (!h) return; h.replaceChildren();
-    S.convs.forEach(function (c) {
+    var qq = (S.q || '').toLowerCase(), list = S.convs.filter(function (c) { return !qq || (c.title || 'New conversation').toLowerCase().indexOf(qq) > -1; });
+    if (!list.length) h.innerHTML = '<div class="hi"><span class="none">' + (qq ? 'No matches' : 'No chats yet') + '</span></div>';
+    list.forEach(function (c) {
       var it = el('<div class="hi' + (S.cur === c.id ? ' on' : '') + '"><span>' + esc(c.title || 'New conversation') + '</span><button aria-label="Delete">' + IC.trash.replace('<svg', '<svg width="15" height="15"') + '</button></div>');
       it.onclick = function () { openConv(c.id); };
       it.querySelector('button').onclick = async function (e) { e.stopPropagation(); if (!confirm('Delete this chat?')) return; try { await api('DELETE', '/api/chat/conversations/' + c.id); if (S.cur === c.id) { S.cur = null; S.msgs = []; if (S.page === 'chat') renderChat(); } loadConvs(); } catch (er) { toast(er.message); } };
@@ -91,9 +105,11 @@
     });
   }
   function renderTk() {
-    var t = $('#tk'), b = S.bal; if (!t || !b) return; var pct = b.total ? Math.max(2, Math.min(100, b.remaining / b.total * 100)) : 0;
-    t.innerHTML = '<b>' + esc((b.plan || 'free').replace(/^./, function (c) { return c.toUpperCase(); })) + '</b> · ' + (b.remaining || 0).toLocaleString() + ' tokens left<div class="tr"><i style="width:' + pct + '%"></i></div>';
+    var t = $('#tk'), b = S.bal; if (!t || !b) return; var pct = b.total ? Math.max(2, Math.min(100, b.remaining / b.total * 100)) : 0, free = (b.plan || 'free') === 'free';
+    var days = b.resetAt ? Math.max(0, Math.ceil((new Date(b.resetAt) - Date.now()) / 864e5)) : null;
+    t.innerHTML = '<div class="r1"><span class="pl">' + cap(b.plan) + '</span><span>' + fmtK(b.remaining || 0) + ' tokens left</span></div><div class="tr"><i style="width:' + pct + '%"></i></div><div class="r2"><span>' + (days != null ? 'Resets in ' + days + ' day' + (days === 1 ? '' : 's') : '') + '</span>' + (free ? '<button class="up" data-p="plan">' + IC.tpl + 'Upgrade</button>' : '') + '</div>';
   }
+  function fmtK(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString(); }
   async function loadBal() { try { S.bal = (await api('GET', '/api/tokens')).balance || null; renderTk(); } catch (e) {} }
   async function loadConvs() { try { S.convs = (await api('GET', '/api/chat/conversations')).conversations || []; renderHist(); } catch (e) {} }
   async function openConv(id) { try { var r = await api('GET', '/api/chat/conversations/' + id); S.cur = id; S.msgs = r.messages; go('chat', true); if (innerWidth < 960) navOpen(false); } catch (e) { toast(e.message); } }
@@ -101,9 +117,10 @@
   function go(p, keep) {
     if (p === 'chat' && !keep) { S.cur = null; S.msgs = []; }
     S.page = p; if (location.hash !== '#' + p) history.replaceState(null, '', '#' + p);
-    var main = $('#main'), t = { chat: 'CEASER AI', templates: 'AI Templates', dashboard: 'Dashboard', referrals: 'Referrals', team: 'Team', settings: 'Settings' };
+    var main = $('#main'), t = { chat: 'CEASER AI', templates: 'AI Templates', dashboard: 'Dashboard', plan: 'Plan & usage', referrals: 'Referrals', team: 'Team', settings: 'Settings' };
     $('#ttl').textContent = t[p] || 'CEASER AI';
-    ({ chat: renderChat, templates: renderTemplates, dashboard: renderDash, referrals: renderRef, team: renderTeam, settings: renderSettings })[p](main);
+    ({ chat: renderChat, templates: renderTemplates, dashboard: renderDash, plan: function (m) { renderSettings(m, 'billing'); }, referrals: renderRef, team: renderTeam, settings: renderSettings })[p](main);
+    main.firstElementChild && main.firstElementChild.classList.add('fadein');
     buildDrawer(); if (innerWidth < 960) navOpen(false);
   }
 
@@ -127,7 +144,7 @@
   function drawMsgs() {
     var inner = $('#inner'); if (!inner) return; inner.replaceChildren();
     if (!S.msgs.length) {
-      var h = el('<div class="hello"><div class="lg">C</div><h1>What can I help you build?</h1><p>Think. Create. Build. Ship.</p><div class="sug"></div></div>');
+      var h = el('<div class="hello"><div class="lg">C</div><h1>Welcome to CEASER AI. <span>What would you like to create today?</span></h1><p>Think. Create. Build. Ship.</p><div class="sug"></div></div>');
       SUG.forEach(function (s) { var b = el('<button><i>' + esc(s[0]) + '</i><span>' + esc(s[1]) + '</span></button>'); b.onclick = function () { send(s[1]); }; h.querySelector('.sug').appendChild(b); });
       inner.appendChild(h); return;
     }
@@ -192,15 +209,15 @@
   function page(main, html) { main.innerHTML = '<div class="page"><div class="pw">' + html + '</div></div>'; return $('.pw', main); }
   var cap = function (s) { return (s || 'free').replace(/^./, function (c) { return c.toUpperCase(); }); };
   async function renderDash(main) {
-    var w = page(main, '<h1>Dashboard</h1><p class="sb">Your usage, activity and plan at a glance.</p><div class="stats">' +
+    var w = page(main, '<a class="btn g back" href="/" style="text-decoration:none">'+IC.back+'Home</a><h1>Dashboard</h1><p class="sb">Your usage, activity and plan at a glance.</p><div class="stats">' +
       [['bolt', 'd-r', 'Tokens left'], ['dash', 'd-u', 'Used this month'], ['tag', 'd-p', 'Current plan'], ['chat', 'd-c', 'Conversations']].map(function (x) { return '<div class="st"><div class="ic">' + IC[x[0]] + '</div><b id="' + x[1] + '">—</b><span>' + x[2] + '</span></div>'; }).join('') + '</div>' +
       '<div class="card"><h3>Token usage <span class="msg" id="d-rs" style="float:right"></span></h3><div class="bar"><i id="d-f"></i></div><div class="bl2"><span id="d-pc">0%</span><span id="d-t"></span></div></div>' +
-      '<div class="card"><h3>Recent conversations</h3><div id="d-l"><small>Loading…</small></div></div><div class="card" id="d-up" hidden style="background:var(--acs);border-color:#bfe6d3"><h3>Upgrade to Pro</h3><p style="margin:0 0 12px;color:#3a3833">500,000 tokens a month plus voice input.</p><button class="btn" id="d-ub">See plans →</button></div>');
+      '<div class="card"><h3>Recent conversations</h3><div id="d-l"><small>Loading…</small></div></div><div class="card" id="d-up" hidden style="background:var(--acs);border-color:#bfe6d3"><h3>Upgrade to Pro</h3><p style="margin:0 0 12px;color:var(--mu)">500,000 tokens a month plus voice input.</p><button class="btn" id="d-ub">See plans →</button></div>');
     var b = S.bal; if (!b) { await loadBal(); b = S.bal || {}; }
     var rem = b.remaining || 0, tot = b.total || 0, used = b.used != null ? b.used : Math.max(0, tot - rem), pct = tot ? Math.min(100, Math.round(used / tot * 100)) : 0;
     $('#d-r').textContent = rem.toLocaleString(); $('#d-u').textContent = used.toLocaleString(); $('#d-p').textContent = cap(b.plan); $('#d-pc').textContent = pct + '% used'; $('#d-t').textContent = tot.toLocaleString() + ' total';
     if (b.resetAt) $('#d-rs').textContent = 'Resets ' + new Date(b.resetAt).toLocaleDateString(); requestAnimationFrame(function () { var f = $('#d-f'); if (f) f.style.width = pct + '%'; });
-    if ((b.plan || 'free') === 'free') { $('#d-up').hidden = false; $('#d-ub').onclick = function () { go('settings'); }; }
+    if ((b.plan || 'free') === 'free') { $('#d-up').hidden = false; $('#d-ub').onclick = function () { go('plan'); }; }
     $('#d-c').textContent = S.convs.length; var l = $('#d-l'); l.replaceChildren();
     if (!S.convs.length) l.innerHTML = '<small>No conversations yet. Start chatting!</small>';
     S.convs.slice(0, 6).forEach(function (c) { var r = el('<div class="row"><span>' + esc(c.title || 'New conversation') + '</span><small>' + (c.last_message_at ? new Date(c.last_message_at).toLocaleDateString() : '') + '</small></div>'); r.onclick = function () { openConv(c.id); }; l.appendChild(r); });
@@ -234,23 +251,52 @@
     var u = S.user, w = page(main, '<h1>Team</h1><p class="sb">Shared workspaces are in development.</p><div class="card"><h3>Team workspaces</h3><p style="margin:0 0 12px;color:var(--mu)">Invite members, share conversations and manage roles in one place.</p><button class="btn" id="tn">Notify me when it’s ready</button></div><div class="card"><h3>Members</h3><div class="row" style="cursor:default"><div class="av">' + esc(u.name.charAt(0).toUpperCase()) + '</div><span><b>' + esc(u.name) + '</b><br><small>' + esc(u.email) + '</small></span><small>Owner</small></div></div>');
     $('#tn').onclick = function () { this.textContent = '🎉 You’ll be notified'; this.disabled = true; };
   }
-  function renderSettings(main) {
-    var u = S.user, w = page(main, '<h1>Settings</h1><p class="sb">Account, password and billing.</p><div class="card"><h3>Profile</h3><div class="fld"><label>Display name</label><input id="sn" value="' + esc(u.name) + '" autocomplete="name"></div><button class="btn" id="sns">Save name</button><span class="msg" id="snm"></span></div>' +
-      '<div class="card"><h3>Change password</h3><div class="fld"><label>Current password</label><input id="pc" type="password" autocomplete="current-password"></div><div class="fld"><label>New password (min 8)</label><input id="pn" type="password" autocomplete="new-password"></div><button class="btn g" id="ps">Update password</button><span class="msg" id="pm"></span></div>' +
-      '<div class="card"><h3>Plan &amp; billing</h3><div id="pl"><small>Loading…</small></div></div><div class="card"><h3 style="color:var(--err)">Danger zone</h3><p style="margin:0 0 12px;color:var(--mu)">Permanently delete your account and all data.</p><button class="btn d" id="del">Delete my account</button></div>');
+  function renderSettings(main, tab) {
+    tab = tab || 'profile';
+    var u = S.user, since = u.createdAt ? new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+    var pwf = function (id, label, ac) { return '<div class="fld"><label>' + label + '</label><div class="pwf"><input id="' + id + '" type="password" autocomplete="' + ac + '"><button type="button" class="eyeb" aria-label="Show password">' + IC.eye + '</button></div></div>'; };
+    var w = page(main, '<a class="btn g back" href="/" style="text-decoration:none">' + IC.back + 'Home</a><div class="prof"><div class="av">' + esc(u.name.charAt(0).toUpperCase()) + '</div><div><h2>' + esc(u.name) + '<span class="pill2">' + cap(u.plan) + '</span></h2><small>' + esc(u.email) + '</small></div></div>' +
+      '<div class="tabs" id="tabs"><button data-t="profile">' + IC.user + 'Profile</button><button data-t="security">' + IC.lock + 'Security</button><button data-t="billing">' + IC.card + 'Billing</button></div>' +
+      '<div class="tp" data-t="profile"><div class="card"><h3>Profile</h3><div class="fld"><label>Full name</label><input id="sn" value="' + esc(u.name) + '" autocomplete="name"></div><button class="btn" id="sns">Save name</button><span class="msg" id="snm"></span></div>' +
+      '<div class="card"><h3>Account</h3><div class="kv"><span>Email</span><b>' + esc(u.email) + '</b></div><div class="kv"><span>Member since</span><b>' + esc(since) + '</b></div><div class="kv"><span>Plan</span><b>' + cap(u.plan) + '</b></div></div>' +
+      '<div class="card"><h3>Session</h3><p style="margin:0 0 12px;color:var(--mu)">Sign out of this device.</p><button class="btn g" id="so">' + IC.out.replace('<svg', '<svg width="16" height="16" style="vertical-align:-3px;margin-right:6px"') + 'Sign out</button></div></div>' +
+      '<div class="tp" data-t="security"><div class="card"><h3>Change password</h3>' + pwf('pc', 'Current password', 'current-password') + pwf('pn', 'New password (min 8)', 'new-password') + '<div class="strength"><i id="pst"></i></div>' + pwf('pr', 'Confirm new password', 'new-password') + '<button class="btn" id="ps">Update password</button><span class="msg" id="pm"></span><p style="margin:12px 0 0;color:var(--mu);font-size:12.5px">Updating your password signs you out of your other devices.</p></div>' +
+      '<div class="card"><h3 style="color:var(--err)">Danger zone</h3><p style="margin:0 0 12px;color:var(--mu)">Permanently delete your account and all data.</p><button class="btn d" id="del">Delete my account</button></div></div>' +
+      '<div class="tp" data-t="billing"><div class="card"><h3>Plan &amp; usage</h3><div id="pl"><small>Loading…</small></div></div></div>');
+    function show(t) { tab = t; w.querySelectorAll('.tp').forEach(function (x) { x.hidden = x.dataset.t !== t; }); w.querySelectorAll('#tabs button').forEach(function (x) { x.classList.toggle('on', x.dataset.t === t); }); $('.page', main).scrollTop = 0; }
+    $('#tabs').onclick = function (e) { var b = e.target.closest('[data-t]'); if (b) show(b.dataset.t); };
+    show(tab);
+    w.querySelectorAll('.eyeb').forEach(function (b) { b.onclick = function () { var i = b.previousElementSibling; i.type = i.type === 'password' ? 'text' : 'password'; b.style.color = i.type === 'text' ? 'var(--ac)' : ''; }; });
     function say(id, t, bad) { var m = $(id); m.textContent = t; m.className = 'msg' + (bad ? ' e' : ''); }
-    $('#sns').onclick = async function () { var n = $('#sn').value.trim(); if (!n) return say('#snm', 'Name cannot be empty.', 1); try { await api('PATCH', '/api/auth/me', { name: n }); } catch (e) {} S.user.name = n; say('#snm', 'Saved ✓'); buildDrawer(); };
-    $('#ps').onclick = async function () { var c = $('#pc').value, n = $('#pn').value; if (!c || !n) return say('#pm', 'Fill in both fields.', 1); if (n.length < 8) return say('#pm', 'At least 8 characters.', 1); try { await api('POST', '/api/auth/change-password', { currentPassword: c, newPassword: n }); say('#pm', 'Password updated ✓'); $('#pc').value = $('#pn').value = ''; } catch (e) { say('#pm', e.message, 1); } };
+    $('#so').onclick = signOut;
+    $('#sns').onclick = async function () { var n = $('#sn').value.trim(); if (!n) return say('#snm', 'Name cannot be empty.', 1); try { var r = await api('PATCH', '/api/auth/profile', { name: n }); S.user = r.user || S.user; S.user.name = n; say('#snm', 'Saved ✓'); buildDrawer(); } catch (e) { say('#snm', e.message, 1); } };
+    $('#pn').oninput = function () { var v = this.value, sc = 0; if (v.length >= 8) sc++; if (/[A-Z]/.test(v) && /[a-z]/.test(v)) sc++; if (/\d/.test(v)) sc++; if (/[^\w\s]/.test(v) || v.length >= 14) sc++; var s = $('#pst'); s.style.width = (v ? Math.max(1, sc) * 25 : 0) + '%'; s.style.background = ['', '#ff6b81', '#ffc857', '#19c3ff', '#2dffa0'][v ? Math.max(1, sc) : 0]; };
+    $('#ps').onclick = async function () {
+      var c = $('#pc').value, n = $('#pn').value, r = $('#pr').value, b = this;
+      if (!c || !n || !r) return say('#pm', 'Fill in all fields.', 1); if (n.length < 8) return say('#pm', 'At least 8 characters.', 1); if (n !== r) return say('#pm', 'Passwords do not match.', 1); if (n === c) return say('#pm', 'Choose a different password.', 1);
+      b.disabled = true; b.textContent = 'Updating…';
+      try { await api('POST', '/api/auth/change-password', { currentPassword: c, newPassword: n }); say('#pm', 'Password updated ✓'); $('#pc').value = $('#pn').value = $('#pr').value = ''; $('#pst').style.width = 0; toast('Password updated'); } catch (e) { say('#pm', e.message, 1); }
+      b.disabled = false; b.textContent = 'Update password';
+    };
     (async function () {
       if (!S.bal) await loadBal(); var b = S.bal || {}, free = (b.plan || 'free') === 'free', pl = $('#pl'); if (!pl) return;
-      pl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between"><div><b>' + cap(b.plan) + '</b><br><small style="color:var(--mu)">' + (b.remaining || 0).toLocaleString() + ' tokens left' + (b.resetAt ? ' · resets ' + new Date(b.resetAt).toLocaleDateString() : '') + '</small></div>' + (free ? '' : '<span class="msg">Active</span>') + '</div><div class="pg" id="pg" style="margin-top:12px"></div>';
+      var pct = b.total ? Math.min(100, Math.round((b.used || 0) / b.total * 100)) : 0;
+      pl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:20px">' + cap(b.plan) + '</b><br><small style="color:var(--mu)">' + (b.remaining || 0).toLocaleString() + ' tokens left' + (b.resetAt ? ' · resets ' + new Date(b.resetAt).toLocaleDateString() : '') + '</small></div>' + (free ? '' : '<span class="msg">Active</span>') + '</div><div class="bar" style="margin-top:12px"><i style="width:' + pct + '%"></i></div><div class="pg" id="pg" style="margin-top:14px"></div>';
       if (!free) return;
       try { var cfg = await api('GET', '/api/public/config'); (cfg.plans || []).filter(function (p) { return p.priceUsd > 0; }).forEach(function (p) {
         var c = el('<div class="pc"><b>' + esc(p.name) + '</b> <small>$' + p.priceUsd + '/mo</small><ul><li>' + Number(p.monthlyTokens || p.tokens).toLocaleString() + ' tokens / month</li><li>Streaming chat</li>' + (p.voiceInput ? '<li>Voice input</li>' : '') + '</ul><button class="btn" style="width:100%">Get ' + esc(p.name) + '</button></div>');
         c.querySelector('button').onclick = async function () { try { var r = await api('POST', '/api/billing/checkout', { plan: p.id, provider: 'stripe' }); if (r.url) location.href = r.url; } catch (e) { toast(e.message || 'Billing not configured yet.'); } }; $('#pg').appendChild(c); }); } catch (e) {}
     })();
-    $('#del').onclick = function () { if (!confirm('Permanently delete your account and all data?') || !confirm('Last chance — delete everything?')) return; api('DELETE', '/api/auth/me').then(function () { location.href = '/'; }).catch(function (e) { toast(e.message); }); };
+    $('#del').onclick = function () { if (!confirm('Permanently delete your account and all data?') || !confirm('Last chance — delete everything?')) return; api('DELETE', '/api/auth/me').then(function () { location.replace('/'); }).catch(function (e) { toast(e.message); }); };
   }
+
+  /* ---------- live status chip ---------- */
+  function ping() {
+    var c = $('#live'); if (!c) return; var t0 = performance.now();
+    fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; var ms = Math.round(performance.now() - t0); c.className = 'live'; c.lastChild.textContent = 'Live · ' + ms + ' ms'; })
+      .catch(function () { c.className = 'live off'; c.lastChild.textContent = navigator.onLine ? 'Server down' : 'Offline'; });
+  }
+  setInterval(function () { if (!document.hidden) ping(); }, 20000); addEventListener('online', ping); addEventListener('offline', ping); document.addEventListener('visibilitychange', function () { if (!document.hidden) ping(); });
 
   /* ---------- boot ---------- */
   $('#mb').onclick = function () { navOpen(!shell.classList.contains('nav-open')); };
@@ -259,12 +305,12 @@
   addEventListener('keydown', function (e) { if (e.key === 'Escape') { navOpen(false); $('#pop').hidden = true; $('#sheet').hidden = true; } });
   (async function () {
     try { S.user = (await api('GET', '/api/auth/me')).user; } catch (e) { S.user = null; }
-    if (!S.user || !S.user.emailVerified) return location.replace('/');
+    if (!S.user) return location.replace('/login'); if (!S.user.emailVerified) return location.replace('/verify-email');
     try { var cfg = await api('GET', '/api/public/config'); S.models = cfg.models || []; } catch (e) {}
     if (S.model && S.models.length && !S.models.some(function (m) { return m.id === S.model; })) S.model = '';
     if (innerWidth >= 960) navOpen(true);
     loadBal(); await loadConvs();
-    var h = location.hash.slice(1); go(['chat', 'templates', 'dashboard', 'referrals', 'team', 'settings'].indexOf(h) > -1 ? h : 'chat', true);
-    var b = $('#boot'); b.classList.add('x'); setTimeout(function () { b.remove(); }, 320);
+    var h = location.hash.slice(1); go(['chat', 'templates', 'dashboard', 'plan', 'referrals', 'team', 'settings'].indexOf(h) > -1 ? h : 'chat', true);
+    ping(); var b = $('#boot'); b.classList.add('x'); setTimeout(function () { b.remove(); }, 320);
   })();
 })();

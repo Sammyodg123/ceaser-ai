@@ -70,11 +70,11 @@
     var n = el('<div>' +
       '<nav class="nav"><div class="logo"><div class="dot">C</div><span class="wm">CEASER <span class="grad">AI</span></span>' + VB + '</div><div class="sp"></div><button class="navmenu" id="navmenu" aria-label="Open menu">☰</button><div class="navlinks">' +
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
-      '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button></div></nav>' +
-      '<header class="hero"><div><div class="pill"><b></b>CEASER AI · Online and ready</div>' +
+      (S.user && S.user.emailVerified ? '<div class="acct" id="acct"><button class="acct-b" id="acctb" aria-haspopup="true" aria-expanded="false"><span class="acct-av">' + esc(initial(S.user.name)) + '</span><span class="acct-n">' + esc(S.user.name) + '</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><div class="acct-m" id="acctm" hidden><div class="acct-i"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div><a href="/chat.html">Open chat</a><a href="/chat.html#dashboard">Dashboard</a><a href="/chat.html#settings">Settings</a><button id="acctso">Sign out</button></div></div>' : '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button>') + '</div></nav>' +
+      '<header class="hero"><div><div class="pill live-pill" id="lpill"><b></b><span>CEASER AI · Checking status…</span></div>' +
       '<h1>Your AI for <span class="type" id="ty"></span><br><span class="grad">built to ship.</span></h1>' +
       '<p class="lead">Chat, write, debug and build with an assistant that streams answers instantly, remembers your conversations and never gets in your way.</p>' +
-      '<div class="cta"><button class="btn lg" id="su2">Start free →</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
+      '<div class="cta"><button class="btn lg" id="su2">' + (S.user && S.user.emailVerified ? 'Open chat →' : 'Start free →') + '</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
       '<div class="stats"><div><b>20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
       '<div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="demo-tools"><span>Live prompt preview</span><button id="replay">Replay</button></div><div class="body" id="demo"></div></div></header>' +
       '<section class="sec" id="features"><h2 class="rv">Everything you need, <span class="grad">nothing you don’t</span></h2><p class="sub rv">Fast, focused and designed to feel great on your phone.</p><div class="grid">' +
@@ -97,8 +97,26 @@
       '<section class="sec" id="contact"><div class="contact rv"><small>CONTACT</small><a class="mail" id="cmail" href="#">Talk to us</a><p style="margin:0;color:var(--mute)">Partnerships, custom plans or support. Write to the CEASER AI team.</p></div></section>' +
       '<footer class="foot">© ' + new Date().getFullYear() + ' CEASER AI · Built by Ceaser</footer></div>');
     $app.replaceChildren(n);
-    n.querySelector('#li').onclick = function () { authModal('login'); };
-    n.querySelector('#su').onclick = n.querySelector('#su2').onclick = function () { authModal('signup'); };
+    var signed = S.user && S.user.emailVerified;
+    if (signed) {
+      var ab = n.querySelector('#acctb'), am = n.querySelector('#acctm');
+      n.querySelector('.nav').insertBefore(n.querySelector('#acct'), n.querySelector('#navmenu'));
+      ab.onclick = function (e) { e.stopPropagation(); am.hidden = !am.hidden; ab.setAttribute('aria-expanded', String(!am.hidden)); };
+      document.addEventListener('click', function h(e) { if (!n.isConnected) return document.removeEventListener('click', h); if (!am.contains(e.target)) { am.hidden = true; ab.setAttribute('aria-expanded', 'false'); } });
+      n.querySelector('#acctso').onclick = logout;
+      n.querySelector('#su2').onclick = function () { location.href = '/chat.html'; };
+    } else {
+      n.querySelector('#li').onclick = function () { authModal('login'); };
+      n.querySelector('#su').onclick = n.querySelector('#su2').onclick = function () { authModal('signup'); };
+    }
+    (function live() {
+      var p = n.querySelector('#lpill'); if (!p) return;
+      function chk() { if (!p.isConnected) return; var t0 = performance.now();
+        fetch('/api/health', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; p.classList.remove('off'); p.lastElementChild.textContent = 'CEASER AI · Live · ' + Math.round(performance.now() - t0) + ' ms'; })
+          .catch(function () { p.classList.add('off'); p.lastElementChild.textContent = 'CEASER AI · ' + (navigator.onLine ? 'Server unreachable' : 'You are offline'); });
+        setTimeout(chk, 20000); }
+      chk();
+    })();
     var nav = n.querySelector('.nav'), navmenu = n.querySelector('#navmenu');
     navmenu.onclick = function () { nav.classList.toggle('open'); navmenu.textContent = nav.classList.contains('open') ? '×' : '☰'; };
     n.querySelectorAll('.navlinks a').forEach(function (a) { a.onclick = function () { nav.classList.remove('open'); navmenu.textContent = '☰'; }; });
@@ -200,7 +218,7 @@
         else {
           var ref = new URLSearchParams(location.search).get('ref') || undefined;
           var r = await api('POST', signup ? '/api/auth/signup' : '/api/auth/login', signup ? { name: v('name'), email: v('email'), password: v('pass'), website: v('website'), ref: ref } : { email: v('email'), password: v('pass') });
-          S.user = r.user; ov.remove(); route(); return;
+          S.user = r.user; ov.remove(); if (r.user && r.user.emailVerified) { location.replace('/chat.html'); return; } route(); return;
         }
       } catch (e) { fail(e.message); }
       go.disabled = false; go.classList.remove('load');
@@ -277,7 +295,7 @@
         await wait(1700 - (Date.now() - t0)); // let the ring finish a nice spin
         state('ok'); card.classList.add('good'); go.classList.remove('load'); go.querySelector('span').textContent = 'Verified';
         kick.textContent = 'Success'; ttl.textContent = 'Verified!'; sub.textContent = 'You’re all set.';
-        setTimeout(function () { history.replaceState(null, '', '/'); route(); }, 1700);
+        setTimeout(function () { location.replace('/chat.html'); }, 1700);
         return;
       } catch (e) {
         await wait(1500 - (Date.now() - t0));
@@ -324,7 +342,7 @@
       catch (e) { n.querySelector('#err').textContent = e.message; }
     };
   }
-  async function logout() { try { await api('POST', '/api/auth/logout'); } catch (e) {} S.user = null; S.convs = []; S.cur = null; S.msgs = []; route(); }
+  async function logout() { try { await api('POST', '/api/auth/logout'); } catch (e) {} S.user = null; S.convs = []; S.cur = null; S.msgs = []; history.replaceState(null, '', '/'); route(); }
 
   /* ---------- chat ---------- */
   var SUGGEST = [['</>', 'Build a responsive portfolio website with a dark theme'], ['?', 'Explain how JWT authentication works with an example'], ['!', 'Find the bug in my JavaScript function'], ['API', 'Plan a REST API for a task manager with Express and MongoDB']];
@@ -425,7 +443,8 @@
     if (p === '/reset-password' && q.get('token')) return resetView(q.get('token'));
     if (!S.user) { landing(); if (p === '/register') authModal('signup'); else if (p === '/login') authModal('login'); return; }
     if (!S.user.emailVerified) return verifyView(p === '/verify-email' ? q.get('token') : null);
-    chatView();
+    if (p === '/') return landing();
+    location.replace('/chat.html');
   }
   var startupAt = performance.now();
   function finishStartup() {

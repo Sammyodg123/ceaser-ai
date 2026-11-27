@@ -1,0 +1,19 @@
+/* account chip + live status (home page) */
+.acct{position:relative}
+.acct-b{display:flex;align-items:center;gap:9px;height:40px;padding:0 12px 0 5px;border-radius:99px;border:1px solid var(--line2);background:rgba(255,255,255,.04);color:var(--text);font:600 14px Inter,system-ui,sans-serif;cursor:pointer;transition:background .2s,border-color .2s}
+.acct-b:hover{background:rgba(255,255,255,.09);border-color:rgba(45,255,160,.45)}
+.acct-av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#2dffa0,#19c3ff);color:#04120c;font-weight:800;font-size:14px}
+.acct-n{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-m{position:absolute;right:0;top:calc(100% + 10px);min-width:230px;background:#0e1016;border:1px solid var(--line2);border-radius:16px;padding:6px;box-shadow:0 20px 50px -12px #000;animation:acin .16s ease both;z-index:50}
+@keyframes acin{from{opacity:0;transform:translateY(-6px) scale(.98)}}
+.acct-i{padding:10px 12px;border-bottom:1px solid var(--line);margin-bottom:4px}.acct-i b{display:block;font-size:14px}.acct-i small{color:var(--mute);font-size:12px;word-break:break-all}
+.acct-m a,.acct-m button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:10px;color:var(--text);text-decoration:none;font:500 14px Inter,system-ui,sans-serif;background:none;border:0;cursor:pointer}
+.acct-m a:hover,.acct-m button:hover{background:rgba(255,255,255,.07)}
+.acct-m #acctso{color:#ff6b81}.acct-m #acctso:hover{background:rgba(255,107,129,.14)}
+.acct-m[hidden]{display:none}
+.live-pill b{width:8px!important;height:8px!important;border-radius:50%!important;background:#2dffa0!important;box-shadow:0 0 10px #2dffa0;animation:lpulse 1.8s infinite}
+.live-pill.off b{background:#ff6b81!important;box-shadow:0 0 10px #ff6b81;animation:none}
+@keyframes lpulse{50%{opacity:.35}}
+@media(max-width:720px){.acct-n{display:none}.acct-b{padding:0 8px 0 5px}}
+@media(min-width:721px){.nav>.acct{order:5}}
+.nav>.acct{margin-right:4px}
