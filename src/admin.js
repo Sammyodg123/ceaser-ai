@@ -2,18 +2,18 @@
 // Values are saved to <data dir>/settings.json and applied to process.env immediately (no redeploy needed).
 // NOTE: on Render's free plan the disk is wiped on redeploy, so keep a copy of important keys in Render's Environment tab too.
 const express = require('express'), fs = require('fs'), path = require('path');
-const { cfg, HttpError, wrap } = require('./core');
+const { cfg, HttpError, wrap, isAdminEmail } = require('./core');
 const models = require('./models');
 const router = express.Router();
 const FILE = path.join(path.dirname(path.resolve(process.env.DB_PATH || './data/app.db')), 'settings.json');
 
 const GROUPS = [
-  ['AI engines (API keys)', ['GROQ_API_KEY', 'GEMINI_API_KEY', 'NVIDIA_API_KEY', 'VENICE_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'MANUS_API_KEY', 'DEEPSEEK_API_KEY', 'MISTRAL_API_KEY', 'XAI_API_KEY', 'TOGETHER_API_KEY', 'OPENROUTER_API_KEY', 'CEREBRAS_API_KEY', 'FIREWORKS_API_KEY', 'PERPLEXITY_API_KEY']],
+  ['AI engines (API keys)', ['OMEGA_AI', 'GROQ_API_KEY', 'GEMINI_API_KEY', 'NVIDIA_API_KEY', 'VENICE_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'MANUS_API_KEY', 'DEEPSEEK_API_KEY', 'MISTRAL_API_KEY', 'XAI_API_KEY', 'TOGETHER_API_KEY', 'OPENROUTER_API_KEY', 'CEREBRAS_API_KEY', 'FIREWORKS_API_KEY', 'PERPLEXITY_API_KEY']],
   ['Model overrides (leave empty = auto-detect the newest)', ['GROQ_MODEL', 'GEMINI_MODEL', 'NVIDIA_MODEL', 'VENICE_MODEL', 'OPENAI_MODEL', 'FREE_MODEL', 'FREE_CODE_MODEL']],
   ['Routing', ['AUTO_PROVIDER', 'CHAT_PROVIDERS', 'CODE_PROVIDERS', 'WEBSITE_PROVIDERS', 'EXTRA_MODEL_COST', 'FREE_AI']],
   ['Images', ['IMAGE_PROVIDERS', 'HF_TOKEN', 'IMAGE_FREE']],
   ['Payments (Flutterwave)', ['FLW_SECRET_KEY', 'FLW_PUBLIC_KEY', 'FLW_SECRET_HASH', 'FLW_CURRENCY', 'FLW_RATE', 'PROMO_CODES']],
-  ['Email', ['BREVO_API_KEY', 'MAIL_FROM']],
+  ['Email', ['ADMIN_EMAIL', 'BREVO_API_KEY', 'MAIL_FROM']],
 ];
 const ALLOWED = new Set(GROUPS.flatMap((g) => g[1]));
 const isSecret = (k) => /KEY|TOKEN|HASH|SECRET|PASS/.test(k);
@@ -21,7 +21,7 @@ const mask = (v) => (v.length <= 8 ? '••••' : '••••' + v.slice(-
 const read = () => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { return {}; } };
 
 router.use((req, res, next) => {
-  const ok = req.user && (req.user.role === 'admin' || (cfg.adminEmail && String(req.user.email).toLowerCase() === cfg.adminEmail));
+  const ok = req.user && (req.user.role === 'admin' || isAdminEmail(req.user.email));
   ok ? next() : next(new HttpError(403, 'forbidden', 'Admins only.'));
 });
 

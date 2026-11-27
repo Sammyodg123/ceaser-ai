@@ -2,7 +2,12 @@ const router = require('express').Router();
 const models = require('./models');
 const { cfg, db, HttpError, wrap, id, now, balanceOf, spend } = require('./core');
 
-const SYSTEM = `Your name is ${cfg.name}, created by ${cfg.creator}. If asked who you are or what your name is, say you are ${cfg.name}; never say you are ChatGPT, Gemini, Llama or any other model. You are a precise, friendly AI assistant for conversation, coding and building projects. Be concise and correct. Use Markdown. Whenever you write a script, program, config or any code, put it in a fenced code block with the language name, and keep prose around it short.`;
+const SYSTEM = `Your name is ${cfg.name}, created by ${cfg.creator}. If asked who you are or what your name is, say you are ${cfg.name}; never say you are ChatGPT, Gemini, Llama or any other model. You are a precise, friendly AI assistant for conversation, coding and building projects.
+
+CAPABILITIES: you CAN generate images (the app draws them when the user asks for a picture) and you CAN build complete websites and apps. Never say you cannot generate images. If the user only ASKS whether you can do something (for example "can you generate an image?" or "can you build a website?"), answer "Yes" in one or two friendly sentences and ask what they would like; do NOT produce it until they actually ask for it. When the user attaches a screenshot or image, read it carefully: transcribe the visible text, describe the interface and point out errors before answering.
+
+SUGGESTIONS: end EVERY reply with one last line in exactly this form: [[suggest: first action | second action | third action]] with 2 or 3 short next actions (max 7 words each) written as the user's next message, for example [[suggest: Generate an image of a dog | Build a landing page for it | Explain how it works]]. Never mention or explain this line. Be concise and correct. Use Markdown. Whenever you write a script, program, config or any code, put it in a fenced code block with the language name, and keep prose around it short.`;
+const BLUNT = `\n\nTONE: BLUNT MODE is on. Be brutally honest, direct and a bit sarcastic. No sugarcoating, no filler, no flattery: call out weak ideas, mistakes and excuses harshly (a roast is fine), then give the real fix. Swearing only if the user swears first. The same safety rules still apply: never help with anything harmful or illegal.`;
 const CODE_RULE = `\n\nCODE QUALITY: you are a senior engineer. Return COMPLETE, working, runnable code: no placeholders, no "rest of code here", no truncation. Think about edge cases first, then write clean idiomatic code with correct imports. Put each file in its own fenced block labelled with its filename. Keep explanations to a few lines.`;
 const BUILD_RULE = `\n\nWhen asked for a website, landing page, app UI or game: reply with ONE complete, self-contained file in a single fenced block labelled like \`\`\`html:index.html (inline CSS and JS, no build step, mobile-first and responsive, modern clean design, system fonts or Google Fonts only, no placeholder images that need a network except via CSS gradients/SVG). Keep animations light so the page stays smooth on phones. Do not use localStorage. Write at most two short sentences before the code and two after.`;
 const msgDTO = (m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, model: m.model, attachments: [], feedback: m.feedback,
@@ -179,23 +184,23 @@ async function streamReply(req, res, conv) {
   send('start', { messageId: a.id, kind: pl.kind });
   const ac = new AbortController(); res.on('close', () => ac.abort());
   let text = '', tin = 0, tout = 0, status = 'complete', usedModel = '', usedCost = 1;
-  const SYS = SYSTEM + (pl.kind === 'build' ? BUILD_RULE : '') + (pl.kind !== 'chat' ? CODE_RULE : '');
+  const SYS = SYSTEM + (req.body && req.body.tone === 'blunt' ? BLUNT : '') + (pl.kind === 'build' ? BUILD_RULE : '') + (pl.kind !== 'chat' ? CODE_RULE : '');
   const emit = (t) => { if (!text) step(pl.kind === 'build' ? 'Writing code' : pl.kind === 'code' ? 'Writing the answer' : 'Writing the answer'); text += t; send('delta', { text: t }); };
 
   async function viaOpenAI(P, prov, model) {
     const base = P.base().replace(/\/$/, ''); if (!base) throw new Error('missing base url for ' + prov);
-    let msgs = history.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) }));
+    let msgs = history.map((m) => ({ role: m.role, content: P.vision ? toOpenAIContent(m.content) : (splitImages(m.content).text || '(image omitted)') }));
     if (P.free) { // the free public API rejects prompts over ~16k characters: keep the newest messages that fit
       const len = (m) => (typeof m.content === 'string' ? m.content.length : 600); let budget = 14500 - SYS.length; const keep = [];
       for (let i = msgs.length - 1; i >= 0 && budget > 0; i--) { let m = msgs[i]; if (typeof m.content === 'string' && m.content.length > budget) m = { role: m.role, content: m.content.slice(-Math.max(1500, budget)) }; budget -= len(m); keep.unshift(m); }
       msgs = keep;
     }
     const go = (mdl) => { // first-byte timeout: a hanging provider must not stall the whole reply
-      const c2 = new AbortController(), fwd = () => c2.abort(), tm = setTimeout(() => { c2.abort(); }, 25000);
+      const c2 = new AbortController(), fwd = () => c2.abort(), tm = setTimeout(() => { c2.abort(); }, hasImage || pl.kind === 'build' ? 40000 : 15000);
       ac.signal.addEventListener('abort', fwd, { once: true });
       return fetch(base + '/chat/completions', { method: 'POST', signal: c2.signal,
       headers: Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + models.keyOf(P) }, P.noauth || !P.hdr ? {} : P.hdr(models.keyOf(P))),
-      body: JSON.stringify({ model: mdl, stream: true, ...(P.free ? {} : { stream_options: { include_usage: true } }), messages: [{ role: 'system', content: SYS }, ...msgs] }) }).then((x) => { clearTimeout(tm); return x; }, (e) => { clearTimeout(tm); if (!ac.signal.aborted) e.timeout = true; throw e; });
+      body: JSON.stringify({ model: mdl, stream: true, ...(P.free ? {} : { stream_options: { include_usage: true } }), ...(prov === 'gemini' && pl.kind === 'chat' ? { reasoning_effort: 'low' } : {}), messages: [{ role: 'system', content: SYS }, ...msgs] }) }).then((x) => { clearTimeout(tm); return x; }, (e) => { clearTimeout(tm); if (!ac.signal.aborted) e.timeout = true; throw e; });
     };
     model = models.modelFor(prov, model);
     if (P.free && pl.kind !== 'chat') model = process.env.FREE_CODE_MODEL || 'qwen-coder'; // free coding model, falls back to the default below
@@ -247,6 +252,20 @@ async function streamReply(req, res, conv) {
   }
 
   let lastWhy = '';
+  async function viaOmega(model) {
+    const base = (process.env.OMEGA_BASE || 'https://api.omegatech.app').replace(/\/$/, '');
+    const q = encodeURIComponent(splitImages(lastRaw).text.slice(0, 1800)), m = String(model || 'Qwen3-coder');
+    const route = { 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
+      chatai: `/api/ai/Chatai?action=chat&message=${q}&model=chatgpt`, chatbot: `/api/ai/Chatbot?action=chat&message=${q}&needSearch=false`, llamacoder: `/api/ai/llamacoder?action=create&prompt=${q}&quality=high` }[m.toLowerCase()];
+    if (!route) throw new Error('provider 404 unknown omega model');
+    const r = await fetch(base + route, { signal: AbortSignal.any([ac.signal, AbortSignal.timeout(60000)]) });
+    if (!r.ok) throw new Error(`provider ${r.status} omega`);
+    const raw = await r.text(); let j; try { j = JSON.parse(raw); } catch (e) { j = raw; }
+    const pick = (v, d) => { if (typeof v === 'string') return v; if (!v || typeof v !== 'object' || d > 3) return ''; for (const k of ['result', 'response', 'message', 'answer', 'reply', 'text', 'content', 'output', 'data']) { const t = pick(v[k], d + 1); if (t) return t; } return ''; };
+    const out = String(pick(j, 0) || '').trim(); if (!out) throw new Error('provider 502 omega empty');
+    for (let i = 0; i < out.length; i += 60) emit(out.slice(i, i + 60));
+    tin = Math.ceil(lastRaw.length / 4); tout = Math.ceil(out.length / 4);
+  }
   const kindLabel = { build: 'Build task', code: 'Coding task', chat: 'Chat' }[pl.kind];
   try {
     for (let i = 0; i < pl.chain.length; i++) {
@@ -255,8 +274,10 @@ async function streamReply(req, res, conv) {
       usedModel = c.model; usedCost = c.cost || 1;
       try {
         if (P.type === 'manus') { const o = await manusReply(conv, history, ac, send, step); text = o.text; tin = o.tin; tout = o.tout; }
+        else if (P.type === 'omega') await viaOmega(c.model);
         else if (P.type === 'openai') await viaOpenAI(P, c.provider, c.model);
         else await viaAnthropic(P, c.model);
+        models.good(c.provider);
         break;
       } catch (e) {
         if (ac.signal.aborted) throw e;
@@ -266,7 +287,7 @@ async function streamReply(req, res, conv) {
         lastWhy = `${c.label}${code ? ' ' + code : ''}`;
         if (code === '401' || code === '403') models.cool(c.provider, 10 * 60 * 1000); // bad key / blocked account
         else if (code === '404' || code === '410') models.cool(c.provider, 5 * 60 * 1000); // retired model
-        else if (code === '429' || code === 'timeout' || code === '413') models.cool(c.provider, 2 * 60 * 1000);
+        else if (code === '429' || code === 'timeout' || code === '413') models.cool(c.provider, 5 * 60 * 1000);
         send('thinking', { text: `${c.label} was unavailable${code ? ' (' + code + ')' : ''}, trying another engine…\n` });
       }
     }
@@ -283,7 +304,7 @@ async function streamReply(req, res, conv) {
 
 // Admin-only: tests every configured provider with a tiny request and reports the real HTTP status (fastest way to find a bad key / URL / model).
 router.get('/diagnose', wrap(async (req, res) => {
-  if (!(req.user.role === 'admin' || (cfg.adminEmail && String(req.user.email).toLowerCase() === cfg.adminEmail))) throw new HttpError(403, 'forbidden', 'Admins only.');
+  if (req.user.role !== 'admin') throw new HttpError(403, 'forbidden', 'Admins only.');
   const out = [];
   for (const p of Object.keys(models.PROVIDERS)) {
     const P = models.PROVIDERS[p]; if (!models.hasKey(p) || P.type !== 'openai') continue;
@@ -347,7 +368,11 @@ const fromJSON = async (j) => {
 const IMG_PROVIDERS = {
   custom: { on: () => process.env.IMAGE_API_KEY && process.env.IMAGE_BASE_URL, run: async (p) => fromJSON((await grab(process.env.IMAGE_BASE_URL.replace(/\/$/, '') + '/images/generations', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.IMAGE_API_KEY }, body: JSON.stringify({ model: process.env.IMAGE_MODEL || undefined, prompt: p, n: 1, size: '1024x1024' }) }, 90000)).json) },
   together: { on: () => process.env.TOGETHER_API_KEY, run: async (p) => fromJSON((await grab('https://api.together.xyz/v1/images/generations', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.TOGETHER_API_KEY }, body: JSON.stringify({ model: process.env.IMAGE_TOGETHER_MODEL || 'black-forest-labs/FLUX.1-schnell-Free', prompt: p, width: 1024, height: 1024, steps: 4, n: 1, response_format: 'b64_json' }) }, 60000)).json) },
-  huggingface: { on: () => process.env.HF_TOKEN, run: async (p) => { const g = await grab('https://router.huggingface.co/hf-inference/models/' + (process.env.IMAGE_HF_MODEL || 'black-forest-labs/FLUX.1-schnell'), { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.HF_TOKEN, accept: 'image/png' }, body: JSON.stringify({ inputs: p }) }, 90000); if (!g.buf) throw new Error('not an image'); return g; } },
+  huggingface: { on: () => process.env.HF_TOKEN, run: async (p) => {
+    let last; const ms = [process.env.IMAGE_HF_MODEL, 'black-forest-labs/FLUX.1-schnell', 'stabilityai/stable-diffusion-xl-base-1.0', 'black-forest-labs/FLUX.1-dev'].filter(Boolean);
+    for (const m of ms.filter((x, k) => ms.indexOf(x) === k)) {
+      try { const g = await grab('https://router.huggingface.co/hf-inference/models/' + m, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + String(process.env.HF_TOKEN).trim(), accept: 'image/png' }, body: JSON.stringify({ inputs: p }) }, 90000); if (g.buf && g.buf.length > 1000) return g; last = new Error('not an image'); } catch (e) { last = e; }
+    } throw last; } },
   pollinations: { on: () => String(process.env.IMAGE_FREE || 'on').toLowerCase() !== 'off', run: async (p) => {
     let last; for (const m of ['flux', 'turbo']) {
       try { const g = await grab('https://image.pollinations.ai/prompt/' + encodeURIComponent(p) + '?width=1024&height=1024&nologo=true&private=true&model=' + m + '&seed=' + Math.floor(Math.random() * 1e9), {}, 70000); if (g.buf && g.buf.length > 2000) return g; last = new Error('empty image'); } catch (e) { last = e; }
@@ -361,12 +386,12 @@ router.post('/image', wrap(async (req, res) => {
   if (balanceOf(req.user).remaining <= 0) throw new HttpError(402, 'insufficient_tokens', 'You are out of tokens. Upgrade your plan.');
   const conv = req.body.conversationId ? own(req, req.body.conversationId) : null;
   const order = String(process.env.IMAGE_PROVIDERS || 'custom,together,huggingface,pollinations,openai').split(',').map((x) => x.trim().toLowerCase()).filter((x) => IMG_PROVIDERS[x] && IMG_PROVIDERS[x].on());
-  let out = null;
+  let out = null; const errs = [];
   for (const k of order) {
     try { out = await IMG_PROVIDERS[k].run(prompt); if (out && out.buf && out.buf.length > 1000) { out.provider = k; break; } out = null; }
-    catch (e) { console.error(`image error (${k}):`, String(e.message).slice(0, 200)); out = null; }
+    catch (e) { console.error(`image error (${k}):`, String(e.message).slice(0, 200)); errs.push(k + ' ' + String(e.message).slice(0, 60)); out = null; }
   }
-  if (!out) throw new HttpError(502, 'provider_error', 'The image service is busy right now. Try again in a moment.');
+  if (!out) throw new HttpError(502, 'provider_error', 'Image generation failed' + (errs.length ? ' (' + errs.join('; ').slice(0, 220) + ')' : ' (no image engine configured)') + '. Try again.');
   const ext = /jpe?g/.test(out.type) ? 'jpg' : /webp/.test(out.type) ? 'webp' : 'png';
   const file = `${uhash(req.user.id)}_${crypto.randomBytes(9).toString('hex')}.${ext}`;
   fs.writeFileSync(path.join(IMG_DIR, file), out.buf);

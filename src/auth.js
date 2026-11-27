@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
-const { cfg, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, userDTO } = require('./core');
+const { cfg, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, userDTO, isAdminEmail } = require('./core');
 
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false,
   handler: (req, res) => res.status(429).json({ error: { code: 'rate_limited', message: 'Too many attempts, try later.' } }) });
@@ -20,6 +20,7 @@ function loadUser(req, res, next) {
     const s = db.prepare('SELECT * FROM sessions WHERE hash=? AND expires>?').get(sha(t), now());
     if (s) req.user = db.prepare('SELECT * FROM users WHERE id=?').get(s.user_id) || null;
   }
+  if (req.user && isAdminEmail(req.user.email) && req.user.role !== 'admin') { db.prepare("UPDATE users SET role='admin' WHERE id=?").run(req.user.id); req.user.role = 'admin'; }
   next();
 }
 const requireUser = (req, res, next) => req.user ? next() : next(new HttpError(401, 'unauthorized', 'Please log in.'));

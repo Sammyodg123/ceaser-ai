@@ -30,13 +30,15 @@ const PROVIDERS = {
   ollama:     { key: 'OLLAMA_BASE_URL',    type: OA, label: 'Ollama (local)', noauth: true, base: () => process.env.OLLAMA_BASE_URL,                              model: () => 'llama3.2' },
   // FREE, no key needed (anonymous public API). Turn off with FREE_AI=off. Always last so it is only the Auto fallback when nothing else is set.
   pollinations: { key: null, always: true, free: true, noauth: true, vision: true, type: OA, label: 'Free AI', base: () => process.env.FREE_BASE_URL || 'https://text.pollinations.ai/openai', model: () => process.env.FREE_MODEL || 'openai' },
+  // Optional free engines from api.omegatech.app (unofficial, may be slow or change). Turn on with OMEGA_AI=on in Admin. Picked by hand only, never used by Auto.
+  omega:      { key: 'OMEGA_AI', type: 'omega', free: true, label: 'Omega', model: () => 'Qwen3-coder' },
   custom:     { key: 'CUSTOM_API_KEY',     type: OA, label: 'Custom',        base: () => process.env.CUSTOM_BASE_URL || '',                                    model: () => '' },
 };
 Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
 // keys pasted into dashboards often carry quotes, spaces or a trailing newline: strip them so the provider does not answer 401
 const clean = (v) => String(v == null ? '' : v).trim().replace(/^["']|["']$/g, '').trim();
 const keyOf = (P) => (P && P.key ? clean(process.env[P.key]) : '');
-const hasKey = (p) => { const P = PROVIDERS[p]; if (!P) return false; if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
+const hasKey = (p) => { const P = PROVIDERS[p]; if (!P) return false; if (p === 'omega') return /^(on|1|true|yes)$/i.test(clean(process.env.OMEGA_AI)); if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
 // ---- dynamic model discovery: providers retire models often (Groq/Gemini/NVIDIA all 404/410 on old names), so ask the provider what it has ----
 const found = {}, cooled = {};
 const BADM = /embed|whisper|tts|guard|moderat|rerank|image|audio|safety|orpheus|transcri|dall|clip|ocr|parse|retriev|vision-preview|imagen|veo|live|robotics|aqa|learnlm|gemma-?\d*n?-?it?$/i;
@@ -63,6 +65,7 @@ async function discover(p) {
 // the model to actually call: a model found by discovery wins over the built-in default (but never over one you set in .env)
 const modelFor = (p, wanted) => { const P = PROVIDERS[p]; return P && (process.env[P.prefix + '_MODEL'] || process.env[P.prefix + '_MODELS']) ? wanted : (found[p] || wanted); };
 const reset = () => { Object.keys(found).forEach((k) => delete found[k]); Object.keys(cooled).forEach((k) => delete cooled[k]); };
+let lastGood = ''; const good = (p) => { lastGood = p; delete cooled[p]; };
 const cool = (p, ms) => { cooled[p] = Date.now() + (ms || 10 * 60 * 1000); };
 const isCooled = (p) => cooled[p] > Date.now();
 const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
@@ -70,7 +73,7 @@ const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
 // default model id(s) of a provider: <PREFIX>_MODELS="a,b,c"  or  <PREFIX>_MODEL=a  or built-in default
 function idsOf(p) {
   const P = PROVIDERS[p], list = process.env[P.prefix + '_MODELS'], one = process.env[P.prefix + '_MODEL'];
-  const ids = list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || P.model()].filter(Boolean);
+  const ids = p === 'omega' && !list ? ['Qwen3-coder', 'Qwen', 'Claude', 'Chatai', 'Chatbot', 'llamacoder'] : list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || P.model()].filter(Boolean);
   return ids;
 }
 function all() {
@@ -120,7 +123,8 @@ function chainFor(kind, vision) {
   else if (kind === 'code') pref = envList('CODE_PROVIDERS', 'anthropic,manus');
   else {
     pref = envList('CHAT_PROVIDERS', '').length ? envList('CHAT_PROVIDERS') : keyed.filter((p) => p !== 'manus');
-    if (pref.length > 1) { const k = rr++ % pref.length; pref = pref.slice(k).concat(pref.slice(0, k)); } // rotate: spreads usage over every API
+    pref = pref.filter((p) => !isCooled(p)).concat(pref.filter(isCooled));
+    if (lastGood && pref.indexOf(lastGood) > 0) pref = [lastGood].concat(pref.filter((p) => p !== lastGood)); // stick with the engine that last worked: steady, no random failures
   }
   const out = [];
   const add = (p) => { if (ok(p) && out.indexOf(p) < 0) out.push(p); };
@@ -155,4 +159,4 @@ function find(id) {
   const m = (id && l.find((x) => x.id === id)) || l[0];
   return m.id === 'auto' ? Object.assign({}, m, { id: m.model }) : m;
 }
-module.exports = { list, pub, find, plan, intent, PROVIDERS, keyOf, hasKey, idsOf, discover, modelFor, cool, reset };
+module.exports = { list, pub, find, plan, intent, PROVIDERS, keyOf, hasKey, idsOf, discover, modelFor, cool, reset, good };

@@ -72,8 +72,8 @@
       '<a class="nl" href="#features">Features</a><a class="nl" href="#how">How it works</a><a class="nl" href="#plans">Pricing</a><a class="nl" href="#faq">FAQ</a>' +
       (S.user && S.user.emailVerified ? '<div class="acct" id="acct"><button class="acct-b" id="acctb" aria-haspopup="true" aria-expanded="false"><span class="acct-av">' + esc(initial(S.user.name)) + '</span><span class="acct-n">' + esc(S.user.name) + '</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><div class="acct-m" id="acctm" hidden><div class="acct-i"><b>' + esc(S.user.name) + '</b><small>' + esc(S.user.email) + '</small></div><a href="/chat.html">Open chat</a><a href="/chat.html#dashboard">Dashboard</a><a href="/chat.html#settings">Settings</a><button id="acctso">Sign out</button></div></div>' : '<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Get started</button>') + '</div></nav>' +
       '<header class="hero"><div><div class="pill live-pill" id="lpill"><b></b><span class="lt">CEASER AI · Online and ready</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>' +
-      '<h1>Your AI for <span class="type" id="ty"></span><br><span class="grad">built to ship.</span></h1>' +
-      '<p class="lead">Chat, write, debug and build with an assistant that streams answers instantly, remembers your conversations and never gets in your way.</p>' +
+      '<h1 class="h1one">All AI. <span class="grad">One app.</span></h1><div class="engline"><span>Powered by</span><b class="type" id="ty">Claude</b></div>' +
+      '<p class="lead">Every top AI engine in one clean place. Auto picks the best one for each job, or you pick any engine yourself. Chat, build websites, write code, read screenshots and generate images.</p><div class="engchips" id="engchips"></div>' +
       '<div class="cta"><button class="btn lg" id="su2">' + (S.user && S.user.emailVerified ? 'Open chat →' : 'Start free →') + '</button><a class="btn ghost lg" href="#features" style="text-decoration:none;display:inline-block">See what it does</a></div>' +
       '<div class="stats"><div><b>20k</b>free tokens</div><div><b>Live</b>streaming replies</div><div><b>24/7</b>always on</div></div></div>' +
       '<div class="win"><div class="bar"><i></i><i></i><i></i></div><div class="demo-tools"><span>Live prompt preview</span><button id="replay">Replay</button></div><div class="body" id="demo"></div></div></header>' +
@@ -126,7 +126,7 @@
     n.querySelector('#replay').onclick = function () { demoLoop(n.querySelector('#demo')); };
     reveal(n); typeLoop(n.querySelector('#ty')); demoLoop(n.querySelector('#demo'));
     renderPlans(n.querySelector('#pl'));
-    fetch('/api/public/config').then(function (r) { return r.json(); }).then(function (c) { var a = n.querySelector('#cmail'); if (a && c.app && c.app.email) { a.textContent = c.app.email; a.href = 'mailto:' + c.app.email; } }).catch(function () {});
+    fetch('/api/public/config').then(function (r) { return r.json(); }).then(function (c) { var seen = {}, names = [], box = n.querySelector('#engchips'); (c.models || []).forEach(function (m) { var g = m.group || m.label; if (m.id === 'auto' || seen[g]) return; seen[g] = 1; names.push(g); var b = document.createElement('button'); b.className = 'engchip'; b.textContent = g; b.onclick = function () { try { localStorage.setItem('cz_model', m.id); } catch (e) {} if (S.user && S.user.emailVerified) location.href = '/chat.html'; else authModal('signup'); }; if (box) box.appendChild(b); }); if (names.length) window.__eng = names; var a = n.querySelector('#cmail'); if (a && c.app && c.app.email) { a.textContent = c.app.email; a.href = 'mailto:' + c.app.email; } }).catch(function () {});
   }
   function feat(i, t, p) { return '<div class="card rv"><div class="ic">' + i + '</div><h3>' + t + '</h3><p>' + p + '</p></div>'; }
   async function renderPlans(box) {
@@ -143,10 +143,11 @@
     reveal(box);
   }
   function typeLoop(node) {
-    var words = ['coding', 'writing', 'learning', 'building', 'thinking'], wi = 0, ci = 0, del = false;
+    var wi = 0, ci = 0, del = false;
     (function tick() {
       if (!node.isConnected) return;
-      var w = words[wi]; node.textContent = w.slice(0, ci);
+      var words = window.__eng && window.__eng.length ? window.__eng : ['Claude', 'Gemini', 'Groq', 'NVIDIA', 'Venice AI'];
+      if (wi >= words.length) wi = 0; var w = words[wi]; node.textContent = w.slice(0, ci);
       if (!del && ci === w.length) { del = true; return later(tick, 1400); }
       if (del && ci === 0) { del = false; wi = (wi + 1) % words.length; }
       ci += del ? -1 : 1; later(tick, del ? 45 : 95);

@@ -101,10 +101,12 @@ function spend(userId, tokens) {
   db.prepare('UPDATE users SET used=used+?, bonus=bonus-? WHERE id=?').run(fromAllowance + (tokens - fromAllowance - fromBonus), fromBonus, userId);
 }
 
+// ADMIN_EMAIL may hold several addresses (comma separated). Matching is case-insensitive and read live, so editing it in Admin works at once.
+const isAdminEmail = (e) => { const list = String(process.env.ADMIN_EMAIL || '').toLowerCase().split(/[,;\s]+/).filter(Boolean); return !!e && list.includes(String(e).trim().toLowerCase()); };
 const userDTO = (u) => {
   const verified = db.prepare('SELECT COUNT(*) c FROM users WHERE referred_by=? AND email_verified=1').get(u.id).c;
-  return { id: u.id, name: u.name, email: u.email, emailVerified: !!u.email_verified, plan: refreshPeriod(u).plan, role: u.role,
+  return { id: u.id, name: u.name, email: u.email, emailVerified: !!u.email_verified, plan: refreshPeriod(u).plan, role: isAdminEmail(u.email) ? 'admin' : u.role,
     locale: u.locale, preferences: { aiLanguage: u.ai_language }, createdAt: u.created_at,
     referral: { code: u.ref_code, link: `${cfg.url}/register?ref=${u.ref_code}`, verifiedCount: verified } };
 };
-module.exports = { cfg, PLANS, planOf, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, balanceOf, spend, userDTO, refreshPeriod };
+module.exports = { cfg, PLANS, planOf, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, balanceOf, spend, userDTO, refreshPeriod, isAdminEmail };

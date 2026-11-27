@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
-  var S = { user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], imgs: [], bal: null };
+  var S = { tone: localStorage.getItem('cz_tone') || '', user: null, convs: [], cur: null, msgs: [], busy: false, page: 'chat', model: localStorage.getItem('cz_model') || '', models: [], files: [], imgs: [], bal: null };
   var IC = {
     menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>',
     home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.5V21h14V9.5"/></svg>',
@@ -73,7 +73,10 @@
   }
   var HLC = {}, HLN = 0;
   function hlc(code) { if (code.length > 12000) return esc(code); var h = HLC[code]; if (h === undefined) { if (++HLN > 60) { HLC = {}; HLN = 1; } h = HLC[code] = hl(code); } return h; }
-  function md(src, live) {
+  /* follow-up suggestions: the model ends a reply with [[suggest: a | b | c]]; we hide that line and show tappable chips */
+  function stripSug(t) { return String(t || '').replace(/\n*\[\[suggest:[\s\S]*$/i, ''); }
+  function getSug(t) { var m = /\[\[suggest:\s*([\s\S]*?)\]\]/i.exec(String(t || '')); return m ? m[1].split('|').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 3) : []; }
+  function md(src, live) { src = stripSug(src);
     var parts = String(src).split(/```/), out = '';
     parts.forEach(function (p, i) {
       if (i % 2) {
@@ -110,7 +113,7 @@
   function copy(t, b, label) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = label; }, 1400); }, function () { toast('Press and hold to copy'); }); }
   function stream(url, body, onDelta, onThink, onStep, signal) {
     return fetch(url, { method: 'POST', credentials: 'same-origin', signal: signal, headers: { 'content-type': 'application/json', 'x-csrf-token': csrf(), accept: 'text/event-stream' }, body: JSON.stringify(body) }).then(async function (r) {
-      if (!r.ok) { var t = await r.text(), d = {}; try { d = JSON.parse(t); } catch (e) {} throw new Error((d.error && d.error.message) || 'Request failed (' + r.status + ')'); }
+      if (!r.ok) { var t = await r.text(), d = {}; try { d = JSON.parse(t); } catch (e) {} var se = new Error((d.error && d.error.message) || 'Request failed (' + r.status + ')'); se.status = r.status; throw se; }
       var rd = r.body.getReader(), dec = new TextDecoder(), buf = '';
       for (;;) {
         var x = await rd.read(); if (x.done) break; buf += dec.decode(x.value, { stream: true });
@@ -161,7 +164,7 @@
     t.innerHTML = '<div class="r1"><span class="pl">' + cap(b.plan) + '</span><span>' + fmtK(b.remaining || 0) + ' tokens left</span></div><div class="tr"><i style="width:' + pct + '%"></i></div><div class="r2"><span>' + (days != null ? 'Resets in ' + days + ' day' + (days === 1 ? '' : 's') : '') + '</span>' + (free ? '<button class="up" data-p="plan">' + IC.tpl + 'Upgrade</button>' : '') + '</div>';
   }
   function fmtK(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString(); }
-  async function loadBal() { try { S.bal = (await api('GET', '/api/tokens')).balance || null; renderTk(); } catch (e) {} }
+  async function loadBal() { try { S.bal = (await api('GET', '/api/tokens')).balance || null; renderTk(); renderLow(); } catch (e) {} }
   async function loadConvs() { try { S.convs = (await api('GET', '/api/chat/conversations')).conversations || []; renderHist(); } catch (e) {} }
   async function openConv(id) { try { var r = await api('GET', '/api/chat/conversations/' + id); S.cur = id; S.msgs = (r.messages || []).filter(function (m) { return m.role !== 'assistant' || m.content; }); go('chat', true); if (innerWidth < 960) navOpen(false); } catch (e) { toast(e.message); } }
 
@@ -233,6 +236,12 @@
     if (!S.msgs.length) {
       var h = el('<div class="hello"><div class="lg">C</div><h1>Welcome to CEASER AI. <span>What would you like to create today?</span></h1><p>Think. Create. Build. Ship.</p><div class="sug"></div></div>');
       SUG.forEach(function (s) { var b = el('<button><i>' + esc(s[0]) + '</i><span>' + esc(s[1]) + '</span></button>'); b.onclick = function () { send(s[1]); }; h.querySelector('.sug').appendChild(b); });
+      var gs = [], seen = {}; (S.models || []).forEach(function (m) { var g = m.group || m.label; if (!seen[g]) { seen[g] = 1; gs.push(m); } });
+      if (gs.length > 1) {
+        var eg = el('<div class="engs"><small>Pick an engine</small><div></div></div>');
+        gs.forEach(function (m) { var on = (S.model || (S.models[0] && S.models[0].id)) === m.id, b = el('<button class="eng' + (on ? ' on' : '') + '"></button>'); b.textContent = m.id === 'auto' ? 'Auto' : (m.group || m.label); b.onclick = function () { S.model = m.id; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); eg.querySelectorAll('.eng').forEach(function (x) { x.classList.toggle('on', x === b); }); }; eg.lastChild.appendChild(b); });
+        h.appendChild(eg);
+      }
       inner.appendChild(h); return;
     }
     S.msgs.forEach(function (m) { inner.appendChild(msgNode(m)); }); mountPreviews(inner); var ms = $('#msgs'); ms.style.scrollBehavior = 'auto'; ms.scrollTop = ms.scrollHeight; ms.style.scrollBehavior = ''; addRegen();
@@ -300,11 +309,11 @@
     try { rec.start(); mic.classList.add('rec'); ta.placeholder = 'Listening…'; toast('Listening — tap the mic again to stop'); } catch (e) { rec = null; }
   }
   function modelSheet() {
-    var s = $('#sheet'), ms = S.models.length ? S.models : [{ id: '', label: 'No model yet', desc: 'Add an API key to your .env file' }];
+    var s = $('#sheet'), tn = S.tone === 'blunt', ms = S.models.length ? S.models : [{ id: '', label: 'No model yet', desc: 'Add an API key to your .env file' }];
     var lastG = null;
-    s.innerHTML = '<div class="box"><h3>Choose model</h3>' + ms.map(function (m) { var gh = ''; if (m.group && m.group !== lastG) { lastG = m.group; gh = '<div class="grp">' + esc(m.group) + '</div>'; } return gh + '<button class="opt' + (m.id === S.model || (!S.model && m === ms[0]) ? ' on' : '') + '" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(m.desc || '') + '</small></div><span class="ck">' + ((m.id === S.model || (!S.model && m === ms[0])) ? IC.ok : '') + '</span></button>'; }).join('') + '</div>';
+    s.innerHTML = '<div class="box"><h3>Choose model</h3><button class="opt' + (tn ? ' on' : '') + '" data-t="1"><div><b>Blunt mode</b><small>Harsh, direct, no sugarcoating (still safe)</small></div><span class="ck">' + (tn ? IC.ok : '') + '</span></button>' + ms.map(function (m) { var gh = ''; if (m.group && m.group !== lastG) { lastG = m.group; gh = '<div class="grp">' + esc(m.group) + '</div>'; } return gh + '<button class="opt' + (m.id === S.model || (!S.model && m === ms[0]) ? ' on' : '') + '" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(m.desc || '') + '</small></div><span class="ck">' + ((m.id === S.model || (!S.model && m === ms[0])) ? IC.ok : '') + '</span></button>'; }).join('') + '</div>';
     s.hidden = false;
-    s.onclick = function (e) { var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); } if (b || e.target === s) s.hidden = true; };
+    s.onclick = function (e) { var t = e.target.closest('[data-t]'); if (t) { S.tone = S.tone === 'blunt' ? '' : 'blunt'; localStorage.setItem('cz_tone', S.tone); toast(S.tone ? 'Blunt mode on' : 'Blunt mode off'); s.hidden = true; return; } var b = e.target.closest('[data-m]'); if (b) { S.model = b.dataset.m; localStorage.setItem('cz_model', S.model); var l = $('#ml'); if (l) l.textContent = modelLabel(); } if (b || e.target === s) s.hidden = true; };
   }
   /* smooth "being written" effect. Text is revealed in small batches and the DOM is refreshed ~14x/second at most, so long code never makes the page lag */
   function typer(am, node, ms, th) {
@@ -336,11 +345,35 @@
   }
   if (window.visualViewport) visualViewport.addEventListener('resize', function () { if (S.pin) { pinScroll(); setTimeout(pinScroll, 120); } });
   document.addEventListener('scroll', function (e) { var t = e.target, h = document.querySelector('.top'); if (h && t && t.classList && (t.classList.contains('msgs') || t.classList.contains('page'))) h.classList.toggle('sc', t.scrollTop > 6); }, true);
+  /* "generate an image of a dog" -> draws it. A QUESTION ("can you generate an image?") is answered, not executed. */
+  function imagePrompt(t) {
+    t = String(t || '').trim(); if (!t || t.length > 600) return null;
+    if (/^\s*(can|could|would|will|are|is|do|does|how|what|why|which|who|where|should)\b/i.test(t) || /\?\s*$/.test(t)) return null;
+    if (/\b(code|script|python|javascript|html|css|function|api|canvas|svg|react|website|app)\b/i.test(t)) return null;
+    if (!/\b(generate|create|make|draw|design|render|paint|produce|imagine)\b[^.\n]{0,40}\b(image|picture|photo|pic|illustration|logo|wallpaper|artwork|portrait|poster|icon|avatar|drawing)s?\b/i.test(t)) return null;
+    var p = t.replace(/^(please\s+|pls\s+)?(generate|create|make|draw|design|render|paint|produce|imagine)\s+(me\s+)?(an?\s+|the\s+)?(image|picture|photo|pic|illustration|logo|wallpaper|artwork|portrait|poster|icon|avatar|drawing)\s*(of|showing|:)\s*/i, '').trim();
+    return p || t;
+  }
+  /* out of tokens: friendly card in the chat + a small warning bar above the box when running low */
+  function days() { var b = S.bal || {}; return b.resetAt ? Math.max(0, Math.ceil((new Date(b.resetAt) - Date.now()) / 864e5)) : null; }
+  function showLimit() {
+    var inner = $('#inner'); if (!inner) return; var h = inner.querySelector('.hello'); if (h) h.remove(); inner.querySelectorAll('.limit').forEach(function (x) { x.remove(); });
+    var d = days(), c = el('<div class="limit"><div class="li">' + IC.bolt + '</div><div class="lt"><b>You’ve reached your token limit</b><span>' + (d != null ? 'Your allowance resets in ' + d + ' day' + (d === 1 ? '' : 's') + '. ' : '') + 'Upgrade your plan to keep working right now.</span></div><button class="btn" id="lim">Upgrade plan ↗</button></div>');
+    c.querySelector('#lim').onclick = function () { go('plan'); }; inner.appendChild(c); var ms = $('#msgs'); if (ms) ms.scrollTop = ms.scrollHeight;
+  }
+  function renderLow() {
+    var dock = $('.dock'), b = S.bal; if (!dock) return; var old = $('#lowbar'); if (old) old.remove();
+    if (!b || !b.total || (b.plan || 'free') !== 'free' && b.remaining > 2000) return; if (b.remaining > Math.max(1000, b.total * 0.05)) return;
+    var n = el('<div class="lowbar" id="lowbar"><span>' + IC.bolt + '</span><p>' + (b.remaining <= 0 ? 'You are out of tokens.' : 'Only ' + Number(b.remaining).toLocaleString() + ' tokens left in this period.') + '</p><button>Upgrade plan</button></div>');
+    n.querySelector('button').onclick = function () { go('plan'); }; dock.insertBefore(n, dock.firstChild);
+  }
   async function send(preset, regen) {
     var ta = $('#ta'), text = (preset || (ta && ta.value) || '').trim(); if (S.busy || (!regen && !text && !S.files.length && !S.imgs.length)) return;
     // "/image a cat wearing sunglasses" (or Image mode) generates a picture instead of chatting
     var im = !regen && /^\/(image|img)\s+([\s\S]+)/i.exec(text);
+    if (S.bal && S.bal.remaining <= 0 && !regen) { if (ta) ta.blur(); S.limitHit = true; showLimit(); renderLow(); return; }
     if (im) return sendImageGen(im[2].trim());
+    var ip = !regen && !S.files.length && !S.imgs.length && imagePrompt(text); if (ip) return sendImageGen(ip);
     if (!regen && S.imode && text && !S.files.length && !S.imgs.length) return sendImageGen(text);
     if (!text) text = S.imgs.length && !S.files.length ? 'What is in this image?' : 'Please review the attached file.';
     var full = text + S.files.map(function (f) { return '\n\n<<<FILE ' + f.name.replace(/[<>\n]/g, '') + '>>>\n' + f.text + '\n<<<END>>>'; }).join('');
@@ -348,7 +381,7 @@
     S.busy = true; if (rec) rec.stop(); if (ta && !regen) { ta.value = ''; ta.style.height = 'auto'; } if (!regen) { S.files = []; S.imgs = []; drawFiles(); } syncSend();
     var um = { role: 'user', content: full, _imgs: atts }, am = { role: 'assistant', content: '' };
     S.ac = new AbortController();
-    var tw = null, th = null, thb = null, thin = null, steps = 0, lastP = null, t0 = Date.now(), aborted = false, node = null;
+    var limitHit = false, tw = null, th = null, thb = null, thin = null, steps = 0, lastP = null, t0 = Date.now(), aborted = false, node = null;
     var low = function () { if (thb) thb.scrollTop = thb.scrollHeight; };
     try {
       if (!S.cur) { var cv = (await api('POST', '/api/chat/conversations')).conversation; S.cur = cv.id; S.convs.unshift(cv); renderHist(); }
@@ -358,18 +391,19 @@
       node = cn.querySelector('.body'); th = cn.querySelector('.think'); thb = cn.querySelector('.thbox'); thin = thb.querySelector('.thin');
       th.onclick = function () { var o = thb.classList.toggle('show'); th.classList.toggle('open', o); };
       tw = typer(am, node, ms, th);
-      await stream('/api/chat/conversations/' + S.cur + (regen ? '/regenerate' : '/messages'), regen ? { model: S.model || undefined } : { content: full, model: S.model || undefined, attachments: atts },
+      await stream('/api/chat/conversations/' + S.cur + (regen ? '/regenerate' : '/messages'), regen ? { model: S.model || undefined, tone: S.tone || undefined } : { content: full, model: S.model || undefined, tone: S.tone || undefined, attachments: atts },
         function (d) { tw.push(d); },
         function (t) { if (!lastP) { lastP = document.createElement('p'); thin.appendChild(lastP); } lastP.textContent += t; low(); },
         function (t) { steps++; lastP = null; var d = el('<div class="stp"><i></i><span></span></div>'); d.lastChild.textContent = t; thin.appendChild(d); th.querySelector('.tx').textContent = t; low(); },
         S.ac.signal);
     } catch (e) {
-      if (e && e.name === 'AbortError') aborted = true; else toast(e.message);
+      if (e && e.name === 'AbortError') aborted = true; else if (e && (e.status === 402 || /out of tokens/i.test(e.message || ''))) { limitHit = true; aborted = true; } else toast(e.message);
     }
     if (tw) { try { await tw.finish(); } catch (e) {} }
     if (node && am.content) { node.innerHTML = md(am.content); mountPreviews(node); }
     if (th) { if (am.content) finishThink(th, thb, steps, t0, aborted ? 'Stopped after ' : 'Worked for '); else if (S.page === 'chat') { S.msgs = S.msgs.filter(function (m) { return m !== am; }); if (aborted) S.msgs = S.msgs.filter(function (m) { return m !== um; }); drawMsgs(); } }
     else if (!aborted) { S.msgs = S.msgs.filter(function (m) { return m !== am && m !== um; }); if (S.page === 'chat') drawMsgs(); }
+    if (limitHit) { if (ta && !regen) ta.value = text; S.bal = Object.assign({}, S.bal || {}, { remaining: 0 }); showLimit(); }
     S.pin = null; S.ac = null; S.busy = false; syncSend(); loadConvs(); loadBal(); addRegen();
   }
   /* animated image generation: a shimmering placeholder swaps for the finished picture (saved in the chat, survives reloads) */
@@ -384,7 +418,7 @@
       var r = await api('POST', '/api/chat/image', { prompt: prompt, conversationId: S.cur });
       var md1 = '![' + prompt.replace(/[\[\]\n]/g, ' ').slice(0, 120) + '](' + r.url + ')';
       S.msgs[S.msgs.length - 1] = { role: 'assistant', content: md1 }; node.innerHTML = md(md1);
-    } catch (e) { toast(e.message); S.msgs = S.msgs.slice(0, -2); if (S.page === 'chat') drawMsgs(); }
+    } catch (e) { S.msgs = S.msgs.slice(0, -2); if (S.page === 'chat') drawMsgs(); if (e && e.status === 402) { S.bal = Object.assign({}, S.bal || {}, { remaining: 0 }); showLimit(); } else toast(e.message); }
     clearInterval(tick); S.busy = false; syncSend(); loadConvs(); loadBal();
   }
 
@@ -472,7 +506,11 @@
     var l = S.msgs[S.msgs.length - 1]; if (S.busy || !l || l.role !== 'assistant' || !l.content || l._gen || !S.cur) return;
     var n = inner.lastElementChild; if (!n || !n.classList.contains('assistant')) return;
     var a = el('<div class="acts"><button class="regen" aria-label="Regenerate" title="Regenerate"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button></div>');
-    a.firstChild.onclick = function () { send('', true); }; n.querySelector('.c').appendChild(a);
+    a.firstChild.onclick = function () { send('', true); };
+    var sg = getSug(l.content);
+    if (!sg.length && !/^!\[/.test(l.content)) sg = /```/.test(l.content) ? ['Explain this code', 'Improve it', 'Add comments'] : ['Explain more', 'Give an example', 'Summarize it'];
+    sg.forEach(function (t) { var b = el('<button class="chip"></button>'); b.textContent = t; b.onclick = function () { send(t); }; a.appendChild(b); });
+    n.querySelector('.c').appendChild(a);
   }
   /* ---------- admin: edit API keys from inside the app, test engines, restart ---------- */
   async function renderAdmin(main) {
@@ -480,7 +518,7 @@
     var data; try { data = await api('GET', '/api/admin/settings'); } catch (e) { $('#adm', w).innerHTML = '<p>' + esc(e.message) + '</p>'; return; }
     var orig = {};
     $('#adm', w).innerHTML = data.groups.map(function (g) { return '<div class="card"><h3>' + esc(g.title) + '</h3>' + g.fields.map(function (f) { orig[f.k] = f.value; return '<label class="afl"><span>' + esc(f.k) + (f.set ? ' <i class="aon">set</i>' : '') + '</span><input data-k="' + esc(f.k) + '" value="' + esc(f.value) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></label>'; }).join('') + '</div>'; }).join('') +
-      '<div class="card"><button class="btn" id="asv" style="width:100%">Save changes</button><div style="display:flex;gap:8px;margin-top:10px"><button class="btn g" id="ats" style="flex:1">Test engines</button><button class="btn g" id="ars" style="flex:1">Restart server</button></div><div id="ares" class="ares"></div></div>';
+      '<div class="card"><button class="btn" id="asv" style="width:100%">Save changes</button><div style="display:flex;gap:8px;margin-top:10px"><button class="btn g" id="ats" style="flex:1">Test engines</button><button class="btn g" id="ars" style="flex:1">Restart server</button></div><button class="btn g" id="ati" style="width:100%;margin-top:8px">Test image generation</button><div id="ares" class="ares"></div></div>';
     $('#asv', w).onclick = async function () {
       var vals = {}; w.querySelectorAll('input[data-k]').forEach(function (i) { if (i.value !== orig[i.dataset.k]) vals[i.dataset.k] = i.value; });
       if (!Object.keys(vals).length) return toast('Nothing changed');
@@ -490,6 +528,11 @@
       var b = this, r = $('#ares', w); b.disabled = true; b.textContent = 'Testing…'; r.innerHTML = '';
       try { var o = await api('POST', '/api/admin/test'); r.innerHTML = o.results.map(function (x) { return '<div class="ar ' + (x.ok ? 'ok' : 'bad') + '"><b>' + esc(x.label) + '</b> · ' + (x.ok ? 'working' : 'failed ' + x.status) + ' · ' + x.ms + 'ms<small>' + esc((x.model ? x.model + ' · ' : '') + (x.note || '')) + '</small></div>'; }).join('') || '<small>No engines with a key.</small>'; } catch (e) { r.textContent = e.message; }
       b.disabled = false; b.textContent = 'Test engines';
+    };
+    $('#ati', w).onclick = async function () {
+      var b = this, r = $('#ares', w); b.disabled = true; b.textContent = 'Generating…';
+      try { var o = await api('POST', '/api/chat/image', { prompt: 'a cute dog, studio photo' }); r.innerHTML = '<div class="ar ok"><b>Image works</b> · ' + esc(o.provider) + '<small><a href="' + esc(o.url) + '" target="_blank" style="color:#2dffa0">open image</a></small></div>'; } catch (e) { r.innerHTML = '<div class="ar bad"><b>Image failed</b><small>' + esc(e.message) + '</small></div>'; }
+      b.disabled = false; b.textContent = 'Test image generation';
     };
     $('#ars', w).onclick = async function () { if (!confirm('Restart the server now? It is back in about 30 seconds.')) return; try { await api('POST', '/api/admin/restart'); toast('Restarting… reload in 30s'); } catch (e) { toast(e.message); } };
   }
