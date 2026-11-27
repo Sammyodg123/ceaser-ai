@@ -1,0 +1,39 @@
+/* CEASER AI chat v21 — the landing page's dynamic, clean look, dimmed. Loads after chat-theme.css. */
+:root{--bg:#060914;--card:#0a0f1d;--soft:#101627;--line:rgba(170,195,255,.08);--tx:#e6ebf7;--mu:#7f8aa3;
+  --ac:#3fdcaa;--ac2:#46a0f0;--vi:#7d70e8;--grad:linear-gradient(135deg,#3fdcaa 0%,#46a0f0 55%,#7d70e8 100%)}
+body{background:linear-gradient(180deg,#080c1f 0,#070b19 55%,#061319 100%)}
+/* dim aurora (same palette as the landing, lower intensity) */
+html:before{background:radial-gradient(closest-side,rgba(110,90,235,.17),transparent 70%);opacity:.8}
+html:after{background:radial-gradient(closest-side,rgba(30,170,230,.13),transparent 70%);opacity:.8}
+/* faint moving grid behind everything */
+.shell:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.32;background-image:linear-gradient(rgba(150,180,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(150,180,255,.07) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:linear-gradient(#000,transparent 75%);mask-image:linear-gradient(#000,transparent 75%);animation:czGridC 30s linear infinite}
+@keyframes czGridC{to{background-position:56px 56px}}
+/* logo tile like the landing */
+.ttl .mk{background:#eef2ff;color:#06251b;box-shadow:0 0 0 1px rgba(255,255,255,.18),0 6px 20px -8px rgba(63,220,170,.55);animation:czLogoC 5s ease-in-out infinite}
+@keyframes czLogoC{50%{box-shadow:0 0 0 1px rgba(255,255,255,.18),0 6px 24px -4px rgba(70,160,240,.65)}}
+.wm{letter-spacing:.16em}
+.wm b{background:none;-webkit-text-fill-color:initial;color:rgba(220,230,255,.5);font-weight:600}
+/* messages */
+.m.user .c{background:linear-gradient(135deg,rgba(63,220,170,.12),rgba(70,160,240,.13));border:1px solid rgba(110,165,255,.2);box-shadow:0 10px 26px -18px rgba(70,160,240,.5);border-radius:20px 20px 6px 20px}
+.m.assistant .c{color:#d6def0}
+.m.assistant .ai{background:var(--grad);box-shadow:0 0 0 3px rgba(63,220,170,.08),0 6px 16px -8px rgba(63,220,170,.6);animation:czAi 4s ease-in-out infinite}
+@keyframes czAi{50%{box-shadow:0 0 0 5px rgba(70,160,240,.08),0 6px 18px -6px rgba(70,160,240,.6)}}
+.msgs .m:last-child{animation:czrise .5s var(--ease) both}
+.cb{background:#070b17;border-color:rgba(170,195,255,.09);border-radius:14px}
+/* chips / suggestions: glass pills that lift */
+.chip,.sug button{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:16px;color:#cdd7ee}
+.chip:hover,.sug button:hover{border-color:rgba(63,220,170,.45);background:rgba(63,220,170,.07);box-shadow:0 10px 26px -18px rgba(63,220,170,.6)}
+/* composer */
+.comp{background:rgba(10,15,30,.9);border:1px solid rgba(170,195,255,.11);border-radius:28px;box-shadow:0 18px 44px -26px rgba(70,160,240,.45)}
+.comp:focus-within{border-color:rgba(63,220,170,.5);box-shadow:0 0 0 3px rgba(63,220,170,.09),0 18px 46px -22px rgba(63,220,170,.5)}
+.send{background:linear-gradient(100deg,#3fdcaa,#46a0f0);color:#04210f;box-shadow:0 8px 20px -8px rgba(63,220,170,.6)}
+/* status pill */
+.live{border:1px solid rgba(63,220,170,.28);background:rgba(63,220,170,.07)}
+.live b{box-shadow:0 0 0 3px rgba(63,220,170,.15),0 0 10px rgba(63,220,170,.7)}
+/* drawer + sheets */
+.drawer{background:linear-gradient(180deg,#080c1b,#060914);border-right:1px solid var(--line)}
+.sheet .box{background:linear-gradient(180deg,#0c1224,#080d1b);box-shadow:0 -24px 60px -24px rgba(70,160,240,.22)}
+.sheet .opt.on{background:linear-gradient(90deg,rgba(63,220,170,.12),rgba(70,160,240,.07))}
+.sheet .opt.auto{background:linear-gradient(135deg,rgba(63,220,170,.08),rgba(125,112,232,.08))}
+#boot{background:radial-gradient(60% 45% at 50% 38%,rgba(70,160,240,.12),transparent 70%),#050813}
+@media (prefers-reduced-motion:reduce){.shell:before,.ttl .mk,.m.assistant .ai{animation:none}}

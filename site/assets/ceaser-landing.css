@@ -213,3 +213,33 @@ a,button,summary{touch-action:manipulation}
   #cz-fx{display:none}
   .rv,#app .hero .hr{opacity:1!important;transform:none!important;transition:none!important}
 }
+
+/* ===== v21.1 layout fix: left-aligned hero like the template, tidy buttons, stable demo ===== */
+html,body{max-width:100%;overflow-x:hidden}
+#app .hero,#app .hero>div:first-child{text-align:left;align-items:flex-start}
+#app .hero{padding-inline:max(var(--pad),env(safe-area-inset-left))}
+#app .hero h1.h1one{text-align:left;width:100%}
+#app .live-pill{margin:0 0 22px!important}
+#app .hero .lead{text-align:left;margin:0 0 20px!important;max-width:32em}
+#app .signal-row{justify-content:flex-start;flex-wrap:nowrap;gap:6px;margin:0 0 20px;overflow:hidden}
+#app .signal-row span{flex:none;padding:7px 10px;font-size:11.5px;border-radius:999px;animation:none}
+#app .signal-row small{display:none}
+#app .engchips{justify-content:flex-start;margin:0 0 22px!important}
+#app .cta{display:grid!important;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:none;margin:0}
+#app .cta .btn,#app .cta a.btn{display:flex!important;align-items:center;justify-content:center;flex:none;width:100%;height:56px;min-height:56px;padding:0 8px;font-size:clamp(14px,4vw,17px);line-height:1;margin:0;box-sizing:border-box;text-align:center}
+#app .stats{margin-top:30px!important;padding-top:20px!important;gap:8px!important}
+#app .stats>div{padding:0}
+#app .win{margin-top:34px!important}
+#app .win .body{height:300px!important;min-height:300px!important;transition:opacity .28s}
+#app .win .body.fade{opacity:0}
+#skilldemo{height:300px!important;min-height:300px!important}
+#app .win .b.a{min-height:48px}
+@media (min-width:760px){
+  #app .hero,#app .hero>div:first-child{text-align:center;align-items:center}
+  #app .hero h1.h1one{text-align:center}
+  #app .live-pill{margin:0 auto 24px!important}
+  #app .hero .lead{text-align:center;margin:0 auto 22px!important}
+  #app .signal-row,#app .engchips{justify-content:center}
+  #app .cta{max-width:520px;margin:0 auto}
+}
+@media (max-width:420px){#app .cta{display:grid!important;grid-template-columns:1fr 1fr;max-width:none}#app .cta .btn{width:100%}}

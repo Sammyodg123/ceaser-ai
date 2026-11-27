@@ -135,8 +135,10 @@
         [['[screenshot of a red error box]', 'The error says the port is already in use. Stop the other process or change the port:', 'PORT=3001 npm start']]
       ], box = n.querySelector('#skilldemo'), tabs = n.querySelector('#skilltabs');
       if (!box || !tabs) return;
-      function go(k) { tabs.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.k === String(k)); }); demoLoop(box, SK[k]); }
-      tabs.onclick = function (e) { var b = e.target.closest('button'); if (b) go(+b.dataset.k); };
+      function go(k) { cur = k; tabs.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.k === String(k)); }); demoLoop(box, SK[k][0]); }
+      var cur = 0, touched = false;
+      tabs.onclick = function (e) { var b = e.target.closest('button'); if (b) { touched = true; go(+b.dataset.k); } };
+      (function auto() { later(function () { if (!box.isConnected) return; if (!touched) go((cur + 1) % SK.length); auto(); }, 8500); })();
       go(0);
     })();
     fetch('/api/public/config').then(function (r) { return r.json(); }).then(function (c) { var seen = {}, names = [], box = n.querySelector('#engchips'); (c.models || []).forEach(function (m) { var g = m.group || m.label; if (m.id === 'auto' || seen[g]) return; seen[g] = 1; names.push(g); var b = document.createElement('button'); b.className = 'engchip'; b.textContent = g; b.onclick = function () { try { localStorage.setItem('cz_model', m.id); } catch (e) {} if (S.user && S.user.emailVerified) location.href = '/chat.html'; else authModal('signup'); }; if (box) box.appendChild(b); }); if (names.length) window.__eng = names; var a = n.querySelector('#cmail'); if (a && c.app && c.app.email) { a.textContent = c.app.email; a.href = 'mailto:' + c.app.email; } }).catch(function () {});
@@ -180,35 +182,30 @@
   function demoLoop(box, scr) {
     if (!box) return;
     if (box._demoTimer) { clearTimeout(box._demoTimer); box._demoTimer = null; }
+    var run = box._run = (box._run || 0) + 1; // a newer run cancels any older one
     var s;
     if (scr) s = scr; else { box._i = ((box._i == null ? -1 : box._i) + 1) % DEMO.length; s = DEMO[box._i]; }
-    var frag = document.createDocumentFragment();
-    var u = el('<div class="b u"></div>'); u.textContent = s[0]; frag.appendChild(u);
-    var a = el('<div class="b a"><span class="demo-status"><i></i><i></i><i></i></span></div>'); frag.appendChild(a);
-    box.replaceChildren(frag);
-    var answer = String(s[1] || ''), code = String(s[2] || ''), pos = 0, cpos = 0, pre = null, txt = document.createTextNode(''), caret = el('<span class="caret"></span>');
-    function typeAnswer() {
-      if (!box.isConnected) return;
-      if (pos === 0) { a.replaceChildren(txt, caret); }
-      if (pos < answer.length) {
-        pos += answer.length > 90 ? 2 : 1;
-        txt.nodeValue = answer.slice(0, pos);
-        box._demoTimer = setTimeout(typeAnswer, 20);
-        return;
-      }
-      if (code) {
-        if (!pre) { pre = el('<pre></pre>'); a.insertBefore(pre, caret); }
-        if (cpos < code.length) {
-          cpos += 2; pre.textContent = code.slice(0, cpos);
-          box._demoTimer = setTimeout(typeAnswer, 16);
-          return;
-        }
-      }
-      caret.remove();
-      box._demoTimer = null;
-      if (!scr && box.isConnected) box._demoTimer = setTimeout(function () { demoLoop(box); }, 4200);
-    }
-    box._demoTimer = setTimeout(typeAnswer, 520);
+    var question = String(s[0] || ''), answer = String(s[1] || ''), code = String(s[2] || '');
+    function alive() { return box.isConnected && box._run === run; }
+    function wait(fn, ms) { box._demoTimer = setTimeout(function () { if (alive()) fn(); }, ms); }
+    box.replaceChildren();
+    var u = el('<div class="b u"></div>'); u.textContent = question; box.appendChild(u);
+    wait(function () {
+      var a = el('<div class="b a"><span class="demo-status"><i></i><i></i><i></i></span></div>'); box.appendChild(a);
+      wait(function () {
+        var txt = document.createTextNode(''), caret = el('<span class="caret"></span>'), pos = 0, cpos = 0, pre = null;
+        a.replaceChildren(txt, caret);
+        (function tick() {
+          if (pos < answer.length) { pos += answer.length > 90 ? 2 : 1; txt.nodeValue = answer.slice(0, pos); return wait(tick, 20); }
+          if (code) {
+            if (!pre) { pre = el('<pre></pre>'); a.insertBefore(pre, caret); }
+            if (cpos < code.length) { cpos += 2; pre.textContent = code.slice(0, cpos); return wait(tick, 16); }
+          }
+          caret.remove();
+          if (!scr) wait(function () { box.classList.add('fade'); wait(function () { box.classList.remove('fade'); demoLoop(box); }, 280); }, 3600);
+        })();
+      }, 750);
+    }, 480);
   }
 
   /* ---------- auth modal (neon ring) ---------- */
