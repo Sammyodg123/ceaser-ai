@@ -171,7 +171,7 @@
     var signup = mode === 'signup', forgot = mode === 'forgot';
     var title = forgot ? 'Reset password' : signup ? 'Create account' : 'Welcome back';
     var sub = forgot ? 'We’ll email you a reset link.' : signup ? 'Free to start. No card needed.' : 'Log in to continue.';
-    var ov = el('<div class="ov authov" id="ov"><i class="blob b1"></i><i class="blob b2"></i><i class="shape s1"></i><i class="shape s2"></i><i class="shape s3"></i><div class="otpwrap authwrap' + (forgot ? ' forgotmode' : '') + '"><div class="otpcard authcard"><div class="grab"></div><button class="x" aria-label="Close">×</button>' +
+    var ov = el('<div class="ov authov otpscene o3" id="ov"><i class="blob b1"></i><i class="blob b2"></i><i class="shape s1"></i><i class="shape s2"></i><i class="shape s3"></i><div class="otpwrap authwrap' + (forgot ? ' forgotmode' : '') + '"><div class="otpcard authcard"><div class="grab"></div><button class="x" aria-label="Close">×</button>' +
       '<div class="mlogo"><div class="dot">C</div></div><div class="otp-kicker"><i></i>' + (forgot ? 'Password recovery' : 'Secure access') + '</div><h2>' + title + '</h2><p class="s">' + sub + '</p>' +
       (signup ? fld('name', 'text', 'Your name', 'name') : '') +
       fld('email', 'email', 'Email address', 'email', ' inputmode="email" autocapitalize="none"') +

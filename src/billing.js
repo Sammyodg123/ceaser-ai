@@ -29,7 +29,7 @@ router.post('/checkout', requireVerified, wrap(async (req, res) => {
   if (provider === 'stripe') {
     if (!stripe) throw new HttpError(503, 'provider_disabled', 'Stripe is not enabled.');
     const params = { mode: 'subscription', customer_email: u.stripe_customer ? undefined : u.email, customer: u.stripe_customer || undefined,
-      line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: plan.priceUsd * 100, recurring: { interval: 'month' }, product_data: { name: `${cfg.name} ${plan.name}` } } }],
+      line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: Math.round(plan.priceUsd * 100), recurring: { interval: 'month' }, product_data: { name: `${cfg.name} ${plan.name}` } } }],
       metadata: { userId: u.id, plan: plan.id }, subscription_data: { metadata: { userId: u.id, plan: plan.id } },
       success_url: `${cfg.url}/app/billing?paid=1`, cancel_url: `${cfg.url}/pricing` };
     if (promos[code]) params.discounts = [{ coupon: (await stripe.coupons.create({ percent_off: promos[code], duration: 'once' })).id }];

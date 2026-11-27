@@ -19,8 +19,8 @@ const cfg = {
 // Edit prices / allowances here
 const PLANS = [
   { id: 'free', name: 'Free', priceUsd: 0, monthlyTokens: 20000, tokens: 20000, voiceInput: false },
-  { id: 'pro', name: 'Pro', priceUsd: 9, monthlyTokens: 500000, tokens: 500000, voiceInput: true },
-  { id: 'premium', name: 'Premium', priceUsd: 29, monthlyTokens: 2000000, tokens: 2000000, voiceInput: true },
+  { id: 'pro', name: 'Pro', priceUsd: 1.99, monthlyTokens: 500000, tokens: 500000, voiceInput: true },
+  { id: 'premium', name: 'Premium', priceUsd: 5, monthlyTokens: 2000000, tokens: 2000000, voiceInput: true },
 ];
 const planOf = (id) => PLANS.find((p) => p.id === id) || PLANS[0];
 

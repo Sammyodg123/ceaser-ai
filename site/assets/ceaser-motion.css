@@ -53,17 +53,17 @@
    OTP SCENE — lit gradient, glass card, boxes that fly into a ring
    ===================================================================== */
 .otpscene.o3{position:fixed;inset:0;z-index:5;display:grid;place-items:center;overflow:hidden;overflow:clip;
-  background:linear-gradient(135deg,#5546d6 0%,#2f2c8a 30%,#0f3f55 62%,#14a982 100%);backdrop-filter:none;animation:o3fade .5s both}
+  background:linear-gradient(135deg,#3b3190 0%,#221f61 32%,#0c2f43 64%,#0f7a61 100%);backdrop-filter:none;animation:o3fade .5s both}
 @keyframes o3fade{from{opacity:0}}
 .otpscene.o3:before{content:"";position:absolute;inset:0;pointer-events:none;background:
   linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px) 0 0/46px 46px,
   linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px) 0 0/46px 46px;
   -webkit-mask:radial-gradient(circle at 50% 40%,#000,transparent 75%);mask:radial-gradient(circle at 50% 40%,#000,transparent 75%)}
 .o3 .blob{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;animation:o3blob 14s ease-in-out infinite alternate}
-.o3 .blob.b1{width:75vmax;height:75vmax;left:-32vmax;top:-30vmax;background:#8d7bff;opacity:.55}
-.o3 .blob.b2{width:70vmax;height:70vmax;right:-30vmax;bottom:-30vmax;background:#2dffb0;opacity:.4;animation-delay:-6s}
+.o3 .blob.b1{width:75vmax;height:75vmax;left:-32vmax;top:-30vmax;background:#7566e0;opacity:.34}
+.o3 .blob.b2{width:70vmax;height:70vmax;right:-30vmax;bottom:-30vmax;background:#25d6a0;opacity:.24;animation-delay:-6s}
 @keyframes o3blob{to{transform:translate(7vmax,5vmax) scale(1.12)}}
-.o3 .shape{position:absolute;border-radius:28%;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:1;pointer-events:none;animation:o3float 9s ease-in-out infinite}
+.o3 .shape{position:absolute;border-radius:28%;background:linear-gradient(135deg,rgba(255,255,255,.17),rgba(255,255,255,.035));border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:1;pointer-events:none;animation:o3float 9s ease-in-out infinite}
 .o3 .shape.s1{width:84px;height:84px;left:6%;top:8%;transform:rotate(-8deg)}
 .o3 .shape.s2{width:100px;height:100px;right:5%;bottom:8%;animation-delay:-3s;animation-duration:11s}
 .o3 .shape.s3{width:42px;height:42px;right:12%;top:16%;border-radius:50%;border-style:solid;animation-delay:-5s}
@@ -72,8 +72,8 @@
 .otpscene.o3 .otpwrap{position:relative;z-index:2;width:min(100%,420px);max-width:calc(100vw - 24px);padding:0;display:flex;flex-direction:column;align-items:center;gap:16px;animation:o3wrap .6s cubic-bezier(.2,1.2,.4,1) both}
 @keyframes o3wrap{from{opacity:0;transform:translateY(26px) scale(.97)}}
 .otpscene.o3 .otpcard{position:relative;width:100%;padding:24px 18px 22px;border-radius:30px;text-align:center;
-  background:linear-gradient(160deg,rgba(255,255,255,.2),rgba(255,255,255,.07));
-  border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
+  background:linear-gradient(160deg,rgba(255,255,255,.13),rgba(255,255,255,.045));
+  border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
   box-shadow:0 30px 70px -28px rgba(8,10,40,.7),inset 0 1px 0 rgba(255,255,255,.35);
   transition:border-color .5s,box-shadow .5s;animation:none;overflow:hidden;overflow:clip}
 .otpscene.o3 .otpcard.good{border-color:rgba(45,255,160,.8);box-shadow:0 0 70px -6px rgba(45,255,160,.55),inset 0 1px 0 rgba(255,255,255,.35)}
@@ -164,3 +164,58 @@
 .o3 .lo:hover{color:#fff}
 @media(max-width:400px){.otpscene.o3 .otpcard{padding-left:12px;padding-right:12px}}
 @media (prefers-reduced-motion:reduce){.o3 .blob,.o3 .shape{animation:none}}
+
+/* =====================================================================
+   AUTH MODAL — same glass template as the OTP screen (dimmed)
+   ===================================================================== */
+.ov.otpscene.o3{z-index:200;place-items:center;animation:o3fade .3s both}
+.ov.o3.out{opacity:0;transition:opacity .18s}
+.o3 .authcard{display:flex;flex-direction:column;align-items:stretch;gap:0;padding:24px 18px 22px;text-align:center}
+.o3 .authcard .x{position:absolute;right:14px;top:14px;width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;font-size:20px;line-height:1}
+.o3 .authcard .x:hover{background:rgba(255,255,255,.18)}
+.o3 .fl{position:relative;display:block;margin:0 0 12px;text-align:left}
+.o3 .fl input{width:100%;height:56px;padding:22px 46px 6px 16px;font:500 16px Inter,system-ui,sans-serif;color:#fff;border-radius:16px;outline:0;
+  background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.22);transition:border-color .25s,box-shadow .3s,background .25s}
+.o3 .fl input:focus{border-color:var(--a);background:rgba(45,255,160,.1);box-shadow:0 0 0 3px rgba(45,255,160,.18),0 12px 28px -12px rgba(45,255,160,.7)}
+.o3 .fl span{position:absolute;left:16px;top:18px;font-size:15px;color:rgba(255,255,255,.62);pointer-events:none;transition:all .18s}
+.o3 .fl input:focus+span,.o3 .fl input:not(:placeholder-shown)+span{top:8px;font-size:11px;letter-spacing:.06em;color:#b9ffe0}
+.o3 .fl .eye{position:absolute;right:8px;top:10px;width:36px;height:36px;border:0;background:none;color:rgba(255,255,255,.7);display:grid;place-items:center}
+.o3 .authcard .row{display:flex;justify-content:space-between;gap:10px;margin-top:14px;font-size:14px;color:rgba(255,255,255,.72)}
+.o3 .authcard .row .link{color:var(--a);font-size:14px;text-decoration:none;background:none;border:0;padding:0;font-weight:600}
+.o3 .authcard .row .link:hover{text-decoration:underline}
+
+/* =====================================================================
+   LANDING — clean, living background instead of flat black
+   ===================================================================== */
+html{background:#0a1022}body{background:transparent!important}
+body:before{content:"";position:fixed;inset:-12%;z-index:-2;pointer-events:none;background:
+  radial-gradient(46% 38% at 14% 12%,rgba(139,123,255,.75),transparent 70%),
+  radial-gradient(40% 34% at 90% 34%,rgba(25,195,255,.42),transparent 70%),
+  radial-gradient(52% 42% at 66% 92%,rgba(45,255,160,.5),transparent 70%),
+  radial-gradient(40% 30% at 8% 70%,rgba(80,70,200,.45),transparent 70%),
+  linear-gradient(180deg,#141a4a 0%,#0e2342 52%,#0a3a3a 100%);
+  animation:lbg 16s ease-in-out infinite alternate}
+@keyframes lbg{0%{transform:translate3d(-3%,-2%,0) scale(1)}100%{transform:translate3d(3%,3%,0) scale(1.1) rotate(3deg)}}
+body:after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.7;background:
+  linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/48px 48px,
+  linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/48px 48px;
+  -webkit-mask:radial-gradient(ellipse at 50% 30%,#000,transparent 75%);mask:radial-gradient(ellipse at 50% 30%,#000,transparent 75%)}
+.nav{background:rgba(14,18,48,.55)!important;border-bottom:1px solid rgba(255,255,255,.1)!important}
+.hero,.sec{position:relative}
+.card,.step,.win,.contact,.faq details{background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03))!important;border-color:rgba(255,255,255,.14)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.card:hover{border-color:rgba(45,255,160,.4)!important;transform:translateY(-4px)}
+.hero h1 .grad,h2 .grad{background:linear-gradient(90deg,#2dffa0,#19c3ff,#8b7bff,#2dffa0);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:lflow 6s linear infinite}
+@keyframes lflow{to{background-position:200% center}}
+.hero .lead,.sub,.card p,.step p,.faq details p{color:rgba(255,255,255,.72)}
+.pill{background:rgba(45,255,160,.1)!important;border:1px solid rgba(45,255,160,.3)!important;color:#d8fff0!important}
+.btn:not(.ghost){background:linear-gradient(90deg,#2dffa0,#19c3ff);border:0;color:#04221b}
+.btn.ghost{border-color:rgba(255,255,255,.28);color:#fff}
+.plan .pr{font-size:38px;font-weight:800}.plan .pr small{font-size:14px;font-weight:500;color:rgba(255,255,255,.6)}
+.plan.hot{border-color:rgba(45,255,160,.55)!important;box-shadow:none}
+.plan.hot:before{content:"Best value";position:absolute;top:-11px;left:50%;transform:translateX(-50%);padding:4px 12px;border-radius:99px;font:700 11px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;background:linear-gradient(90deg,#2dffa0,#19c3ff);color:#04221b}
+.plan{position:relative}
+.foot{color:rgba(255,255,255,.5)}
+#pl{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));max-width:980px;margin:28px auto 0}
+#pl .plan{margin:0}
+.hero h1 .grad,h2 .grad{-webkit-text-fill-color:transparent}
+#pl.grid{background:none;border:0;border-radius:0;overflow:visible}
