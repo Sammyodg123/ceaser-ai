@@ -108,7 +108,9 @@ async function streamReply(req, res, conv) {
   if (!prov) throw new HttpError(503, 'ai_not_configured', 'AI provider key is not set on the server.');
   const history = db.prepare('SELECT role,content FROM messages WHERE conversation_id=? AND status IN (\'complete\',\'stopped\') AND content<>\'\' ORDER BY seq').all(conv.id)
     .map((m) => ({ role: m.role, content: m.content })).slice(-40);
-  const model = prov === 'manus' ? 'manus-' + (process.env.MANUS_PROFILE || 'standard') : (process.env.AI_MODEL || 'claude-sonnet-4-5');
+  const { MODELS } = require('./models');
+  const picked = MODELS.find((m) => m.id && m.id === String(req.body.model || ''));
+  const model = prov === 'manus' ? 'manus-' + (process.env.MANUS_PROFILE || 'standard') : (picked ? picked.id : (process.env.AI_MODEL || 'claude-sonnet-4-5'));
   const a = addMsg(conv.id, 'assistant', '', 'streaming');
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
   const send = (ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
