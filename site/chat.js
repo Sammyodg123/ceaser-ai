@@ -35,6 +35,9 @@
     wa: '<svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9c0 3 3 6 6 6l1-1.5-2-1-1 .8c-1-.4-2-1.400-2.400-2.400l.8-1-1-2z"/></svg>',
     xx: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>',
     home2: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9.500V21h5v-6h4v6h5V9.500"/></svg>',
+    reload: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
+    ext: '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+    full: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
     dl: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
     tag: '<svg viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.2"/></svg>'
   };
@@ -78,8 +81,8 @@
         var n = code ? code.split('\n').length : 0, prev = html5 && !open && code.length > 40;
         out += '<div class="cb' + (open ? ' wr' : '') + (prev ? ' hp' : '') + '" data-name="' + esc(fn || 'code.txt') + '"><div class="h"><span class="fi">' + esc((fn.split('.').pop() || lang || 'txt').slice(0, 4)) + '</span><span class="lg">' + esc(fn || lang || 'code') + '</span>' +
           (open ? '<span class="wt"><b></b>writing…</span>' : (prev ? '<span class="tb"><button data-tab="pv" class="on">Preview</button><button data-tab="cd">Code</button></span>' : '<span class="ln">' + n + ' line' + (n === 1 ? '' : 's') + '</span>')) +
-          (open ? '' : '<button class="ic" data-dl aria-label="Download" title="Download">' + IC.dl + '</button>') + '<button data-copy>Copy</button></div>' +
-          (prev ? '<div class="pv"><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" loading="lazy" data-pv></iframe><button class="full" data-full>Full screen ⤢</button></div>' : '') +
+          (open ? '' : '<button class="ic" data-dl aria-label="Download" title="Download">' + IC.dl + '</button>') + '<button class="ic" data-copy aria-label="Copy" title="Copy">' + IC.copy + '</button></div>' +
+          (prev ? '<div class="pv"><div class="pb"><span class="d3"><i></i><i></i><i></i></span><span class="pu">' + esc(fn) + '</span><button data-reload aria-label="Reload" title="Reload">' + IC.reload + '</button><button data-newtab aria-label="Open in new tab" title="Open as app in new tab">' + IC.ext + '</button><button data-full aria-label="Full screen" title="Full screen">' + IC.full + '</button></div><div class="vp"><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" loading="lazy" data-pv></iframe></div></div>' : '') +
           '<pre' + (prev ? ' hidden' : '') + '><code>' + hl(code) + (open ? '<span class="caret"></span>' : '') + '</code></pre></div>';
         return;
       }
@@ -192,12 +195,14 @@
   function blockClick(e) {
     var cb = e.target.closest('.cb'); if (!cb) return;
     var code = function () { return cb.querySelector('code').textContent; }, b;
-    if ((b = e.target.closest('[data-copy]'))) return copy(code(), b, 'Copy');
+    if ((b = e.target.closest('[data-copy]'))) { var h0 = b.innerHTML; (navigator.clipboard ? navigator.clipboard.writeText(code()) : Promise.reject()).then(function () { b.innerHTML = IC.ok; b.classList.add('okc'); setTimeout(function () { b.innerHTML = h0; b.classList.remove('okc'); }, 1400); }, function () { toast('Press and hold the code to copy'); }); return; }
+    if ((b = e.target.closest('[data-reload]'))) { var fr = cb.querySelector('iframe'), u0 = fr.src; if (u0) { fr.src = 'about:blank'; setTimeout(function () { fr.src = u0; }, 40); } return; }
+    if (e.target.closest('[data-newtab]')) { var f2 = cb.querySelector('iframe'); if (f2 && f2.src && f2.src.indexOf('about:') !== 0) window.open(f2.src, '_blank', 'noopener'); else toast('Preview is still loading…'); return; }
     if (e.target.closest('[data-dl]')) { var a = document.createElement('a'), u = URL.createObjectURL(new Blob([code()], { type: 'text/plain' })); a.href = u; a.download = cb.dataset.name || 'file.txt'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000); return toast('Downloading ' + (cb.dataset.name || 'file')); }
     if ((b = e.target.closest('[data-tab]'))) { var pv = b.dataset.tab === 'pv'; cb.querySelector('.pv').hidden = !pv; cb.querySelector('pre').hidden = pv; cb.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('on', x === b); }); return; }
     if (e.target.closest('[data-full]')) {
-      var o = el('<div class="fs"><div class="fb"><span>' + esc(cb.dataset.name) + '</span><button aria-label="Close">' + IC.x + '</button></div><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe></div>');
-      previewURL(code()).then(function (u) { o.querySelector('iframe').src = u; }).catch(function (er) { toast(er.message); }); o.querySelector('button').onclick = function () { o.remove(); }; document.body.appendChild(o);
+      var o = el('<div class="fs"><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe><button class="fx" aria-label="Close app">' + IC.x + '</button></div>');
+      previewURL(code()).then(function (u) { o.querySelector('iframe').src = u; }).catch(function (er) { toast(er.message); }); o.querySelector('.fx').onclick = function () { o.remove(); }; document.body.appendChild(o);
     }
   }
   function drawMsgs() {
@@ -402,18 +407,26 @@
   setInterval(function () { if (!document.hidden) ping(); }, 20000); addEventListener('online', ping); addEventListener('offline', ping); document.addEventListener('visibilitychange', function () { if (!document.hidden) ping(); });
 
   /* ---------- boot ---------- */
+  function stage(pct, txt) {
+    var f = $('#btf'), p = $('#btp'), t = $('#btt'); if (!f) return;
+    f.style.width = pct + '%'; p.textContent = Math.round(pct) + '%';
+    if (txt && t.textContent !== txt) { t.classList.add('sw'); setTimeout(function () { t.textContent = txt; t.classList.remove('sw'); }, 140); }
+  }
   $('#mb').onclick = function () { navOpen(!shell.classList.contains('nav-open')); };
   $('#scrim').onclick = function () { navOpen(false); };
   $('#nc').onclick = function () { go('chat'); var t = $('#ta'); if (t) t.focus(); };
   addEventListener('keydown', function (e) { if (e.key === 'Escape') { navOpen(false); $('#pop').hidden = true; $('#tmenu').hidden = true; $('#sheet').hidden = true; } });
   (async function () {
+    stage(14, 'Waking the engine…');
     try { S.user = (await api('GET', '/api/auth/me')).user; } catch (e) { S.user = null; }
     if (!S.user) return location.replace('/login'); if (!S.user.emailVerified) return location.replace('/verify-email');
+    stage(46, 'Securing your session…');
     try { var cfg = await api('GET', '/api/public/config'); S.models = cfg.models || []; } catch (e) {}
+    stage(70, 'Loading your models…');
     if (S.model && S.models.length && !S.models.some(function (m) { return m.id === S.model; })) S.model = '';
     if (innerWidth >= 960) navOpen(true);
-    loadBal(); await loadConvs();
+    loadBal(); stage(86, 'Loading your chats…'); await loadConvs();
     var h = location.hash.slice(1); go(['chat', 'templates', 'dashboard', 'plan', 'referrals', 'team', 'settings'].indexOf(h) > -1 ? h : 'chat', true);
-    ping(); var b = $('#boot'), wait = Math.max(0, 1300 - (performance.now() || 0)); setTimeout(function () { b.classList.add('x'); setTimeout(function () { b.remove(); }, 380); }, wait);
+    ping(); stage(100, 'Ready'); var b = $('#boot'), wait = Math.max(350, 1500 - (performance.now() || 0)); setTimeout(function () { b.classList.add('x'); setTimeout(function () { b.remove(); }, 420); }, wait);
   })();
 })();

@@ -150,7 +150,7 @@ async function streamReply(req, res, conv) {
     else if (P.type === 'openai') {
       const base = P.base().replace(/\/$/, ''); if (!base) throw new Error('missing base url for ' + prov);
       const r = await fetch(base + '/chat/completions', { method: 'POST', signal: ac.signal,
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env[P.key] },
+        headers: Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + process.env[P.key] }),
         body: JSON.stringify({ model, stream: true, stream_options: { include_usage: true }, messages: [{ role: 'system', content: SYSTEM }, ...history] }) });
       if (!r.ok) throw Object.assign(new Error(`provider ${r.status} ${(await r.text()).slice(0, 200)}`), { provider: true });
       const dec = new TextDecoder(); let buf = '';
