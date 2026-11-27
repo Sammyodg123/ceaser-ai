@@ -1,0 +1,21 @@
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:#070b19;color:#e6e9f5;font:17px/1.7 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+a{color:#3ee6b0}
+.pg-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:nowrap;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top));background:rgba(7,11,25,.92);backdrop-filter:blur(10px);border-bottom:1px solid #1b2548}
+.pg-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-weight:700;letter-spacing:.18em;white-space:nowrap}
+.pg-brand i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#fff;color:#000;font-style:normal;letter-spacing:0}
+.pg-brand b{color:#8d96b8;font-weight:600}
+.pg-nav{display:none;position:absolute;left:0;right:0;top:100%;flex-direction:column;background:#0a1030;border-bottom:1px solid #1b2548;padding:6px 14px}
+.pg-nav.open{display:flex}.pg-nav a{padding:12px 4px;color:#e6e9f5;text-decoration:none;border-bottom:1px solid #151d3d}
+.pg-burger{width:42px;height:42px;border-radius:12px;border:1px solid #26305c;background:#0e1538;display:grid;place-items:center;flex:none}
+.pg-burger svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round}
+.pg-main{max-width:760px;margin:0 auto;padding:22px 16px 40px}
+h1{font-size:2rem;line-height:1.2;margin:.2em 0 .5em}h2{font-size:1.25rem;margin:1.6em 0 .4em}
+.lead{color:#9aa3c7;font-size:1.1rem}.crumb{font-size:.9rem}
+.grid{display:grid;gap:14px}
+.card{display:block;padding:16px;border:1px solid #1f2a55;border-radius:16px;background:#0c1334;text-decoration:none;color:#e6e9f5}
+.card h2{margin:0 0 6px;font-size:1.1rem}.card p{margin:0 0 8px;color:#9aa3c7;font-size:.95rem}.card span{color:#3ee6b0;font-size:.9rem}
+.btn{display:inline-block;padding:13px 22px;border-radius:14px;background:linear-gradient(90deg,#3ef0a8,#22c8ff);color:#04210f;font-weight:700;text-decoration:none}
+.ad-slot{min-height:90px;margin:24px 0;text-align:center}
+.pg-foot{border-top:1px solid #1b2548;padding:22px 16px calc(22px + env(safe-area-inset-bottom));text-align:center;color:#8d96b8;font-size:.9rem}
+@media(min-width:760px){.pg-nav{display:flex;position:static;flex-direction:row;background:none;border:0;padding:0;gap:18px}.pg-nav a{border:0;padding:4px}.pg-burger{display:none}.grid{grid-template-columns:1fr 1fr}}

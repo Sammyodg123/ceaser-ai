@@ -1,0 +1,16 @@
+/* v21.5 header: logo + profile + menu button on ONE row (loads last) */
+.nav{display:flex!important;flex-wrap:nowrap!important;flex-direction:row!important;align-items:center!important;gap:8px!important;overflow:visible}
+.nav .logo{display:flex!important;align-items:center;gap:8px;flex:1 1 auto!important;min-width:0!important;overflow:hidden}
+.nav .logo .dot{flex:none;width:36px;height:36px}
+.nav .logo .wm{font-size:clamp(11px,3.6vw,14px)!important;letter-spacing:.12em!important;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.nav .logo .vb{flex:none;width:18px;height:18px}
+.nav .sp{display:none!important}
+.nav>.acct{order:2!important;flex:none!important;margin:0!important}
+.nav>.navmenu{order:3!important;flex:none!important;width:42px!important;height:42px!important;margin:0!important}
+.nav>.navlinks{order:4}
+.nav .acct-n{display:none!important}
+.nav .acct-b{height:42px;padding:0 8px 0 5px;gap:6px}
+.nav .acct-av{width:30px;height:30px}
+@media(min-width:760px){.nav .acct-n{display:inline!important}.nav>.navmenu{display:none!important}}
+.xlinks{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;margin:0 0 10px}
+.xlinks a{color:#9aa3c7;text-decoration:none;font-size:14px}.xlinks a:hover{color:#3ee6b0}
