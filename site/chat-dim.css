@@ -37,3 +37,36 @@ html:after{background:radial-gradient(closest-side,rgba(30,170,230,.13),transpar
 .sheet .opt.auto{background:linear-gradient(135deg,rgba(63,220,170,.08),rgba(125,112,232,.08))}
 #boot{background:radial-gradient(60% 45% at 50% 38%,rgba(70,160,240,.12),transparent 70%),#050813}
 @media (prefers-reduced-motion:reduce){.shell:before,.ttl .mk,.m.assistant .ai{animation:none}}
+
+/* ===== v21.2 Venice-style: transparent, flat, clean — with action rows ===== */
+.in{gap:22px}
+.m.user{flex-direction:column;align-items:flex-end}
+.m.user .c{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:22px!important;box-shadow:none!important;padding:11px 18px!important;color:#eef2fb;max-width:88%}
+.m.assistant .c{background:none!important;border:0!important;box-shadow:none!important;padding:0!important}
+.m.assistant{animation:czIn .5s var(--ease) both}.m.user{animation:czIn .4s var(--ease) both}
+@keyframes czIn{from{opacity:0;transform:translate3d(0,12px,0)}}
+.macts{display:flex;align-items:center;gap:2px;margin:6px 0 0;opacity:0;animation:czIn .5s .15s var(--ease) forwards}
+.m.user .macts{justify-content:flex-end;padding-right:2px}
+.macts[hidden]{display:none}
+.ab{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;color:#8c96ab;background:transparent;border:0;padding:0;transition:color .2s,background .2s,transform .15s}
+.ab svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ab:hover{color:#e8eefc;background:rgba(255,255,255,.06)}
+.ab:active{transform:scale(.86);color:var(--ac)}
+.ab.okc{color:var(--ac)}
+.ab[data-a=regen]:active svg{transform:rotate(-200deg);transition:transform .4s}
+.acts{margin-top:2px}
+.ed{width:100%;display:flex;flex-direction:column;gap:8px;min-width:min(78vw,520px)}
+.ed textarea{width:100%;resize:none;background:rgba(255,255,255,.05);border:1px solid rgba(110,165,255,.3);border-radius:16px;color:inherit;font:inherit;line-height:1.55;padding:12px 14px;outline:none;-webkit-user-select:text;user-select:text}
+.ed textarea:focus{border-color:rgba(63,220,170,.55);box-shadow:0 0 0 3px rgba(63,220,170,.08)}
+.edr{display:flex;justify-content:flex-end;gap:8px}
+.edr button{min-height:38px;padding:0 16px;border-radius:12px;font-weight:600;font-size:14px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#cdd7ee}
+.edr .eds{background:linear-gradient(100deg,#3fdcaa,#46a0f0);color:#04210f;border:0}
+/* transparent chrome */
+.top{background:transparent!important;border:0!important}
+.dock{background:linear-gradient(180deg,transparent,rgba(6,9,20,.7) 40%)!important}
+.comp{background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:26px!important;box-shadow:0 20px 50px -30px rgba(70,160,240,.5)!important}
+.comp textarea{background:transparent!important}
+.mchip,.cbtn{color:#a3adc2;background:transparent}
+.send.m-mic{background:#eef2ff;color:#0a1020;box-shadow:none}
+.drawer{background:rgba(7,10,22,.86)!important}
+@media (prefers-reduced-motion:reduce){.m,.macts{animation:none!important;opacity:1}}

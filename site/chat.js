@@ -411,7 +411,8 @@
       node = cn.querySelector('.body'); th = cn.querySelector('.think'); thb = cn.querySelector('.thbox'); thin = thb.querySelector('.thin');
       th.onclick = function () { var o = thb.classList.toggle('show'); th.classList.toggle('open', o); };
       tw = typer(am, node, ms, th);
-      await stream('/api/chat/conversations/' + S.cur + (regen ? '/regenerate' : '/messages'), regen ? { model: S.model || undefined, tone: requestTone() || undefined } : { content: full, model: S.model || undefined, tone: requestTone() || undefined, attachments: atts },
+      var rg = typeof regen === 'string' ? regen.split(':') : null, isEdit = rg && rg[0] === 'edit';
+      await stream(rg ? '/api/chat/messages/' + rg[1] + (isEdit ? '/edit' : '/regenerate') : '/api/chat/conversations/' + S.cur + (regen ? '/regenerate' : '/messages'), isEdit ? { content: text, model: S.model || undefined, tone: requestTone() || undefined } : regen ? { model: S.model || undefined, tone: requestTone() || undefined } : { content: full, model: S.model || undefined, tone: requestTone() || undefined, attachments: atts },
         function (d) { tw.push(d); },
         function (t) { if (!lastP) { lastP = document.createElement('p'); thin.appendChild(lastP); } lastP.textContent += t; low(); },
         function (t) { steps++; lastP = null; var d = el('<div class="stp"><i></i><span></span></div>'); d.lastChild.textContent = t; thin.appendChild(d); th.querySelector('.tx').textContent = t; low(); },
@@ -520,17 +521,68 @@
     w.querySelectorAll('[data-u]').forEach(function (b) { b.onclick = function () { open(b.dataset.u, '_blank'); }; });
     $('#rsh').onclick = function () { if (navigator.share) navigator.share({ title: 'CEASER AI', text: 'Join me on CEASER AI!', url: link }).catch(function () {}); else { navigator.clipboard && navigator.clipboard.writeText(link); toast('Link copied'); } };
   }
-  /* round "regenerate" button under the last answer */
+  /* Venice-style action rows under every finished message: copy / regenerate / edit / delete / info */
+  var AI = {
+    copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>',
+    ok: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    regen: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.2L4 9"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.2L20 15"/><path d="M20 20v-5h-5"/></svg>',
+    edit: '<svg viewBox="0 0 24 24"><path d="M15.5 4.5l4 4L8 20l-4.5 1L4.5 16.5z"/><path d="M13.5 6.5l4 4"/></svg>',
+    del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+    info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8v.2"/></svg>'
+  };
+  function msgText(m) { return m.role === 'user' ? splitFiles(String(m.content || '').replace(/\n*<<<IMAGE ([^\n>]*)>>>\n([\s\S]*?)\n<<<ENDIMAGE>>>/g, '')).text : String(m.content || ''); }
+  async function ensureIds() {
+    if (!S.cur || S.msgs.every(function (m) { return m.id || m._gen; })) return true;
+    try {
+      var r = await api('GET', '/api/chat/conversations/' + S.cur), srv = (r.messages || []).filter(function (m) { return m.role !== 'assistant' || m.content; }), mine = S.msgs.filter(function (m) { return !m._gen; });
+      if (srv.length !== mine.length) return false;
+      mine.forEach(function (m, k) { m.id = srv[k].id; m.model = srv[k].model; m.usage = srv[k].usage; m.createdAt = srv[k].createdAt; });
+      return true;
+    } catch (e) { return false; }
+  }
+  function actBtn(a, label) { return '<button class="ab" data-a="' + a + '" aria-label="' + label + '" title="' + label + '">' + AI[a] + '</button>'; }
+  async function msgAct(a, i, btn) {
+    var m = S.msgs[i]; if (!m || S.busy) return;
+    if (a === 'copy') { var t = msgText(m), h0 = btn.innerHTML; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { btn.innerHTML = AI.ok; btn.classList.add('okc'); setTimeout(function () { btn.innerHTML = h0; btn.classList.remove('okc'); }, 1400); }, function () { toast('Press and hold the text to copy'); }); return; }
+    if (a === 'info') { var w = msgText(m).trim().split(/\s+/).filter(Boolean).length, u = m.usage || {}; toast((m.model ? m.model + ' · ' : '') + w + ' words · ' + msgText(m).length + ' chars' + (u.outputTokens ? ' · ' + u.outputTokens + ' tokens' : '')); return; }
+    if (!(await ensureIds()) || !m.id) return toast('Reload the chat once, then try again.');
+    if (a === 'regen') { S.msgs.length = i; drawMsgs(); return send('', 'regen:' + m.id); }
+    if (a === 'del') {
+      if (!confirm(m.role === 'user' ? 'Delete this message and its reply?' : 'Delete this reply?')) return;
+      try { await api('DELETE', '/api/chat/messages/' + m.id); } catch (e) { return toast(e.message); }
+      var cnt = m.role === 'user' && S.msgs[i + 1] && S.msgs[i + 1].role === 'assistant' ? 2 : 1; S.msgs.splice(i, cnt); drawMsgs(); return;
+    }
+    if (a === 'edit') {
+      var n = $('#inner').children[i], c = n && n.querySelector('.c'); if (!c) return;
+      var box = el('<div class="ed"><textarea rows="3"></textarea><div class="edr"><button class="edc">Cancel</button><button class="eds">' + (m.role === 'user' ? 'Save & resend' : 'Save') + '</button></div></div>');
+      var ta = box.querySelector('textarea'); ta.value = msgText(m); n.querySelector('.macts').hidden = true; c.replaceChildren(box);
+      ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 4, 320) + 'px'; ta.focus();
+      box.querySelector('.edc').onclick = function () { drawMsgs(); };
+      box.querySelector('.eds').onclick = async function () {
+        var v = ta.value.trim(); if (!v) return toast('Message can’t be empty.');
+        if (m.role === 'user') { S.msgs.length = i + 1; m.content = v; return send(v, 'edit:' + m.id); }
+        try { await api('PATCH', '/api/chat/messages/' + m.id, { content: v }); m.content = v; drawMsgs(); } catch (e) { toast(e.message); }
+      };
+    }
+  }
   function addRegen() {
-    var inner = $('#inner'); if (!inner) return; inner.querySelectorAll('.acts').forEach(function (x) { x.remove(); });
-    var l = S.msgs[S.msgs.length - 1]; if (S.busy || !l || l.role !== 'assistant' || !l.content || l._gen || !S.cur) return;
-    var n = inner.lastElementChild; if (!n || !n.classList.contains('assistant')) return;
-    var a = el('<div class="acts"><button class="regen" aria-label="Regenerate" title="Regenerate"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button></div>');
-    a.firstChild.onclick = function () { send('', true); };
+    var inner = $('#inner'); if (!inner) return; inner.querySelectorAll('.acts,.macts').forEach(function (x) { x.remove(); });
+    if (S.busy || !S.cur || !S.msgs.length) return;
+    var nodes = inner.children; if (nodes.length !== S.msgs.length) return;
+    S.msgs.forEach(function (m, i) {
+      var n = nodes[i]; if (!n || m._gen || (m.role === 'assistant' && !m.content)) return;
+      var r = el('<div class="macts">' + (m.role === 'user' ? actBtn('edit', 'Edit') + actBtn('copy', 'Copy') : actBtn('copy', 'Copy') + actBtn('regen', 'Regenerate') + actBtn('edit', 'Edit') + actBtn('del', 'Delete') + actBtn('info', 'Info')) + '</div>');
+      r.onclick = function (e) { var b = e.target.closest('[data-a]'); if (b) msgAct(b.dataset.a, i, b); };
+      n.appendChild(r);
+    });
+    var l = S.msgs[S.msgs.length - 1], n2 = nodes[nodes.length - 1];
+    if (!l || l.role !== 'assistant' || !l.content || l._gen || !n2) return;
     var sg = getSug(l.content);
     if (!sg.length && !/^!\[/.test(l.content)) sg = /```/.test(l.content) ? ['Explain this code', 'Improve it', 'Add comments'] : ['Explain more', 'Give an example', 'Summarize it'];
+    if (!sg.length) return;
+    var a = el('<div class="acts"></div>');
     sg.forEach(function (t) { var b = el('<button class="chip"></button>'); b.textContent = t; b.onclick = function () { send(t); }; a.appendChild(b); });
-    n.querySelector('.c').appendChild(a);
+    n2.appendChild(a);
   }
   /* ---------- admin: edit API keys from inside the app, test engines, restart ---------- */
   async function renderAdmin(main) {

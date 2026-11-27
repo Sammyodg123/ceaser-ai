@@ -451,4 +451,18 @@ router.post('/messages/:id/edit', wrap(async (req, res) => {
   db.prepare('UPDATE messages SET content=? WHERE id=?').run(content, m.id);
   await streamReply(req, res, db.prepare('SELECT * FROM conversations WHERE id=?').get(m.conversation_id));
 }));
+router.patch('/messages/:id', (req, res) => {
+  const m = ownMsg(req); const content = String(req.body.content || '').trim();
+  if (!content) throw new HttpError(400, 'invalid_input', 'Message can’t be empty.');
+  db.prepare('UPDATE messages SET content=? WHERE id=?').run(content, m.id); res.json({ ok: true });
+});
+router.delete('/messages/:id', (req, res) => {
+  const m = ownMsg(req);
+  db.prepare('DELETE FROM messages WHERE id=?').run(m.id);
+  if (m.role === 'user') { // also drop the reply that belonged to it
+    const nx = db.prepare('SELECT id, role FROM messages WHERE conversation_id=? AND seq>? ORDER BY seq LIMIT 1').get(m.conversation_id, m.seq);
+    if (nx && nx.role === 'assistant') db.prepare('DELETE FROM messages WHERE id=?').run(nx.id);
+  }
+  res.json({ ok: true });
+});
 module.exports = router;
