@@ -30,11 +30,11 @@ const PROVIDERS = {
   ollama:     { key: 'OLLAMA_BASE_URL',    type: OA, label: 'Ollama (local)', noauth: true, base: () => process.env.OLLAMA_BASE_URL,                              model: () => 'llama3.2' },
   // FREE, no key needed (anonymous public API). Turn off with FREE_AI=off. Always last so it is only the Auto fallback when nothing else is set.
   pollinations: { key: null, always: true, free: true, noauth: true, vision: true, type: OA, label: 'Free AI', base: () => process.env.FREE_BASE_URL || 'https://text.pollinations.ai/openai', model: () => process.env.FREE_MODEL || 'openai' },
-  // Optional free engines from api.omegatech.app (unofficial, may be slow or change). Turn on with OMEGA_AI=on in Admin. Picked by hand only, never used by Auto.
+  // Optional free engines from api.omegatech.app (unofficial, may be slow or change). Turn on with OMEGA_AI=on in Admin.
   omega:      { key: 'OMEGA_AI', type: 'omega', free: true, label: 'Omega', model: () => 'Qwen3-coder' },
   custom:     { key: 'CUSTOM_API_KEY',     type: OA, label: 'Custom',        base: () => process.env.CUSTOM_BASE_URL || '',                                    model: () => '' },
 };
-Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
+Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : k === 'omega' ? 'OMEGA' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
 // keys pasted into dashboards often carry quotes, spaces or a trailing newline: strip them so the provider does not answer 401
 const clean = (v) => String(v == null ? '' : v).trim().replace(/^["']|["']$/g, '').trim();
 const keyOf = (P) => (P && P.key ? clean(process.env[P.key]) : '');
@@ -73,7 +73,7 @@ const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
 // default model id(s) of a provider: <PREFIX>_MODELS="a,b,c"  or  <PREFIX>_MODEL=a  or built-in default
 function idsOf(p) {
   const P = PROVIDERS[p], list = process.env[P.prefix + '_MODELS'], one = process.env[P.prefix + '_MODEL'];
-  const ids = p === 'omega' && !list ? ['Qwen3-coder', 'Qwen', 'Claude', 'Chatai', 'Chatbot', 'llamacoder'] : list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || P.model()].filter(Boolean);
+  const ids = p === 'omega' && !list ? ['WormGPT', 'Qwen3-coder', 'Qwen', 'Claude', 'Chatai', 'Chatbot', 'llamacoder'] : list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || P.model()].filter(Boolean);
   return ids;
 }
 function all() {
@@ -115,7 +115,13 @@ function intent(text) {
 }
 const envList = (k, d) => String(process.env[k] || d || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
 let rr = 0;
-function chainFor(kind, vision) {
+// This is a style/provider classifier, not a safety bypass. Direct mode may be
+// blunt, but the application still keeps its normal refusal and abuse handling.
+function categoryOf(text, tone) {
+  const t = String(text || '');
+  return tone === 'blunt' || /\b(uncensored|unfiltered|no filter|brutal(?:ly)? honest|roast|swear|curse|harsh|edgy)\b/i.test(t) ? 'uncensored' : 'censored';
+}
+function chainFor(kind, vision, category) {
   const ok = (p) => PROVIDERS[p] && hasKey(p) && !isCooled(p) && (!vision || PROVIDERS[p].vision);
   const keyed = Object.keys(PROVIDERS).filter((p) => ok(p) && !PROVIDERS[p].free && p !== 'custom');
   let pref;
@@ -128,28 +134,34 @@ function chainFor(kind, vision) {
   }
   const out = [];
   const add = (p) => { if (ok(p) && out.indexOf(p) < 0) out.push(p); };
+  if (hasKey('omega')) {
+    const omegaIds = idsOf('omega').map((x) => x.toLowerCase());
+    const preferred = category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder'] : ['qwen', 'chatai', 'chatbot', 'claude'];
+    if (preferred.some((x) => omegaIds.includes(x))) add('omega');
+  }
   pref.forEach(add);
   keyed.filter((p) => p !== 'manus' || kind !== 'chat').forEach(add);
   add('custom'); add('pollinations'); // free AI is always the last resort
   return out;
 }
 // plan(requestedModelId, lastUserText, hasImage) -> { kind, auto, chain:[{provider,model,cost,label}] }
-function plan(reqId, text, hasImage) {
+function plan(reqId, text, hasImage, tone) {
   const l = list(); if (!l.length) return null;
   const pickedId = reqId && reqId !== 'auto' && l.some((x) => x.id === reqId) ? reqId : (reqId ? null : 'auto');
   if (pickedId && pickedId !== 'auto') {
     const m = l.find((x) => x.id === pickedId);
-    return { kind: intent(text), auto: false, chain: [{ provider: m.provider, model: m.id, cost: m.cost || 1, label: PROVIDERS[m.provider].label }] };
+    return { kind: intent(text), category: categoryOf(text, tone), auto: false, chain: [{ provider: m.provider, model: m.id, cost: m.cost || 1, label: PROVIDERS[m.provider].label }] };
   }
   const kind = intent(text);
-  const chain = chainFor(kind, hasImage).map((p) => ({ provider: p, model: idsOf(p)[0] || '', cost: 1, label: PROVIDERS[p].label }));
-  if (!chain.length) { const f = find(reqId); return f ? { kind, auto: true, chain: [{ provider: f.provider, model: f.id, cost: f.cost || 1, label: PROVIDERS[f.provider].label }] } : null; }
-  return { kind, auto: true, chain };
+  const category = categoryOf(text, tone);
+  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen') : (idsOf(p)[0] || ''), cost: 1, label: PROVIDERS[p].label }));
+  if (!chain.length) { const f = find(reqId); return f ? { kind, category, auto: true, chain: [{ provider: f.provider, model: f.id, cost: f.cost || 1, label: PROVIDERS[f.provider].label }] } : null; }
+  return { kind, category, auto: true, chain };
 }
 const list = () => {
   const ap = autoProvider(); if (!ap) return [];
   const autoModel = idsOf(ap)[0] || '';
-  const auto = { id: 'auto', label: 'Auto', desc: 'Smart routing · Manus builds sites, best API for the rest · normal cost', provider: ap, cost: 1, model: autoModel };
+  const auto = { id: 'auto', label: 'Auto', desc: 'Automatically classifies censored/direct style and picks the matching engine', provider: ap, cost: 1, model: autoModel };
   const rest = all().filter((m) => hasKey(m.provider) && !(m.provider === ap && m.id === autoModel));
   return [auto].concat(rest);
 };
@@ -159,4 +171,4 @@ function find(id) {
   const m = (id && l.find((x) => x.id === id)) || l[0];
   return m.id === 'auto' ? Object.assign({}, m, { id: m.model }) : m;
 }
-module.exports = { list, pub, find, plan, intent, PROVIDERS, keyOf, hasKey, idsOf, discover, modelFor, cool, reset, good };
+module.exports = { list, pub, find, plan, intent, categoryOf, PROVIDERS, keyOf, hasKey, idsOf, discover, modelFor, cool, reset, good };

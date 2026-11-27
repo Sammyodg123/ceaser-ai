@@ -175,7 +175,7 @@ async function streamReply(req, res, conv) {
   const lastUser = [...history].reverse().find((m) => m.role === 'user');
   const lastRaw = lastUser ? lastUser.content : '';
   const hasImage = /<<<IMAGE /.test(lastRaw);
-  const pl = models.plan(req.body && req.body.model, splitImages(lastRaw).text, hasImage);
+  const pl = models.plan(req.body && req.body.model, splitImages(lastRaw).text, hasImage, req.body && req.body.tone);
   if (!pl) throw new HttpError(503, 'ai_not_configured', 'No AI provider key is set on the server. Add one to .env.');
   const a = addMsg(conv.id, 'assistant', '', 'streaming');
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
@@ -184,7 +184,7 @@ async function streamReply(req, res, conv) {
   send('start', { messageId: a.id, kind: pl.kind });
   const ac = new AbortController(); res.on('close', () => ac.abort());
   let text = '', tin = 0, tout = 0, status = 'complete', usedModel = '', usedCost = 1;
-  const SYS = SYSTEM + (req.body && req.body.tone === 'blunt' ? BLUNT : '') + (pl.kind === 'build' ? BUILD_RULE : '') + (pl.kind !== 'chat' ? CODE_RULE : '');
+  const SYS = SYSTEM + ((req.body && req.body.tone === 'blunt') || pl.category === 'uncensored' ? BLUNT : '') + (pl.kind === 'build' ? BUILD_RULE : '') + (pl.kind !== 'chat' ? CODE_RULE : '');
   const emit = (t) => { if (!text) step(pl.kind === 'build' ? 'Writing code' : pl.kind === 'code' ? 'Writing the answer' : 'Writing the answer'); text += t; send('delta', { text: t }); };
 
   async function viaOpenAI(P, prov, model) {
@@ -254,8 +254,10 @@ async function streamReply(req, res, conv) {
   let lastWhy = '';
   async function viaOmega(model) {
     const base = (process.env.OMEGA_BASE || 'https://api.omegatech.app').replace(/\/$/, '');
-    const q = encodeURIComponent(splitImages(lastRaw).text.slice(0, 1800)), m = String(model || 'Qwen3-coder');
-    const route = { 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
+    const rawPrompt = splitImages(lastRaw).text.slice(0, 1800);
+    const prompt = pl.category === 'uncensored' ? 'Answer in a harsh, blunt, direct style with no filler. Keep the same safety boundaries and do not assist harmful or illegal acts.\n\nUser request:\n' + rawPrompt : rawPrompt;
+    const q = encodeURIComponent(prompt.slice(0, 2200)), m = String(model || 'Qwen3-coder');
+    const route = { wormgpt: `/api/ai/wormgpt?action=chat&message=${q}&newChat=true&forceNew=true`, 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
       chatai: `/api/ai/Chatai?action=chat&message=${q}&model=chatgpt`, chatbot: `/api/ai/Chatbot?action=chat&message=${q}&needSearch=false`, llamacoder: `/api/ai/llamacoder?action=create&prompt=${q}&quality=high` }[m.toLowerCase()];
     if (!route) throw new Error('provider 404 unknown omega model');
     const r = await fetch(base + route, { signal: AbortSignal.any([ac.signal, AbortSignal.timeout(60000)]) });
@@ -270,7 +272,7 @@ async function streamReply(req, res, conv) {
   try {
     for (let i = 0; i < pl.chain.length; i++) {
       const c = pl.chain[i], P = models.PROVIDERS[c.provider];
-      step(i === 0 ? (pl.auto ? `${kindLabel} → ${c.label}` : `Using ${c.label}`) : `Switching to ${c.label}`);
+      step(i === 0 ? (pl.auto ? `${kindLabel} · ${pl.category} → ${c.label}` : `Using ${c.label}`) : `Switching to ${c.label}`);
       usedModel = c.model; usedCost = c.cost || 1;
       try {
         if (P.type === 'manus') { const o = await manusReply(conv, history, ac, send, step); text = o.text; tin = o.tin; tout = o.tout; }
