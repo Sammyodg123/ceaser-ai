@@ -30,8 +30,8 @@ const PROVIDERS = {
   ollama:     { key: 'OLLAMA_BASE_URL',    type: OA, label: 'Ollama (local)', noauth: true, base: () => process.env.OLLAMA_BASE_URL,                              model: () => 'llama3.2' },
   // FREE, no key needed (anonymous public API). Turn off with FREE_AI=off. Always last so it is only the Auto fallback when nothing else is set.
   pollinations: { key: null, always: true, free: true, noauth: true, vision: true, type: OA, label: 'Free AI', base: () => process.env.FREE_BASE_URL || 'https://text.pollinations.ai/openai', model: () => process.env.FREE_MODEL || 'openai' },
-  // Public engines from api.omegatech.app. Enabled by default; set OMEGA_AI=off to hide them.
-  omega:      { key: 'OMEGA_AI', type: 'omega', free: true, label: 'OmegaTech', model: () => 'Qwen3-coder' },
+  // Public engines (categorized Censored / Uncensored) from api.omegatech.app. Enabled by default; set OMEGA_AI=off to hide them.
+  omega:      { key: 'OMEGA_AI', type: 'omega', free: true, label: 'AI', model: () => 'Qwen3-coder' },
   custom:     { key: 'CUSTOM_API_KEY',     type: OA, label: 'Custom',        base: () => process.env.CUSTOM_BASE_URL || '',                                    model: () => '' },
 };
 Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : k === 'omega' ? 'OMEGA' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
@@ -104,7 +104,7 @@ function all() {
   Object.keys(PROVIDERS).forEach((p) => {
     if (!hasKey(p)) return;
     const ids = idsOf(p);
-    ids.forEach((id) => out.push({ id, label: ids.length > 1 ? PROVIDERS[p].label + ' · ' + id.split('/').pop() : PROVIDERS[p].label, desc: id, provider: p, category: categoryForModel(id, p), cost: PROVIDERS[p].free ? 1 : extra() }));
+    ids.forEach((id) => out.push({ id, label: p === 'omega' ? id : ids.length > 1 ? PROVIDERS[p].label + ' · ' + id.split('/').pop() : PROVIDERS[p].label, desc: id, provider: p, category: categoryForModel(id, p), cost: PROVIDERS[p].free ? 1 : extra() }));
   });
   return out;
 }
@@ -176,7 +176,7 @@ function plan(reqId, text, hasImage, tone) {
   }
   const kind = intent(text);
   const category = categoryOf(text, tone);
-  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen3-coder') : (idsOf(p)[0] || ''), cost: 1, label: PROVIDERS[p].label }));
+  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen3-coder') : (idsOf(p)[0] || ''), cost: 1, label: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen3-coder') : PROVIDERS[p].label }));
   if (!chain.length) { const f = find(reqId); return f ? { kind, category, auto: true, chain: [{ provider: f.provider, model: f.id, cost: f.cost || 1, label: PROVIDERS[f.provider].label }] } : null; }
   return { kind, category, auto: true, chain };
 }

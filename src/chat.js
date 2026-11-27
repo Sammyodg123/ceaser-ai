@@ -268,7 +268,11 @@ async function streamReply(req, res, conv) {
     }[name]);
     const pool = pl.category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder', 'qwen', 'chatbot', 'claude', 'chatai'] : ['qwen3-coder', 'qwen', 'chatbot', 'claude', 'llamacoder', 'chatai', 'wormgpt'];
     const candidates = [m].concat(pool.filter((x) => x !== m));
-    const pick = (v, d) => { if (typeof v === 'string') return v; if (!v || typeof v !== 'object' || d > 5) return ''; for (const k of ['result', 'response', 'message', 'answer', 'reply', 'text', 'content', 'output', 'data']) { const t = pick(v[k], d + 1); if (t) return t; } return ''; };
+    const norm = (x) => String(x || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const sent = new Set([norm(rawPrompt), norm(prompt), norm(lastRaw)]);
+    const isEcho = (t) => sent.has(norm(t)); // the API sometimes sends the user's own message back (e.g. "hello" -> "hello")
+    // reply-like keys first; "message"/"prompt"/"input" last because they often just echo the request
+    const pick = (v, d) => { if (typeof v === 'string') return isEcho(v) ? '' : v; if (!v || typeof v !== 'object' || d > 5) return ''; for (const k of ['reply', 'result', 'response', 'answer', 'text', 'content', 'output', 'data', 'message']) { const t = pick(v[k], d + 1); if (t) return t; } return ''; };
     const filesText = (files) => Array.isArray(files) ? files.filter((f) => f && f.content).map((f) => '```' + (String(f.path || '').split('.').pop() || 'text') + ':' + (f.path || 'file') + '\n' + f.content + '\n```').join('\n\n') : '';
     let out = '', lastErr = null;
     for (const candidate of candidates) {
@@ -279,8 +283,8 @@ async function streamReply(req, res, conv) {
         const raw = await r.text(); let j; try { j = JSON.parse(raw); } catch (e) { j = raw; }
         if (j && typeof j === 'object' && j.success === false) throw new Error('provider 502 omega: ' + String(j.error || 'request failed').slice(0, 120));
         out = String(pick(j, 0) || filesText(j && j.files) || '').trim();
-        if (!out) throw new Error('provider 502 omega empty');
-        if (candidate !== m) step(`Omega fallback → ${candidate}`);
+        if (!out || isEcho(out)) throw new Error('provider 502 omega empty or echoed the question');
+        if (candidate !== m) step(`Fallback → ${candidate}`);
         break;
       } catch (e) { if (ac.signal.aborted) throw e; lastErr = e; }
     }
