@@ -49,8 +49,16 @@ router.post('/settings', wrap(async (req, res) => {
 
 // Real test of every engine: lists its models, calls the one the chat would use, and reports the exact HTTP status.
 router.post('/test', wrap(async (req, res) => {
-  const names = Object.keys(models.PROVIDERS).filter((p) => models.hasKey(p) && models.PROVIDERS[p].type === 'openai');
-  const results = await Promise.all(names.map(async (p) => {
+  const names = Object.keys(models.PROVIDERS).filter((p) => models.hasKey(p) && (models.PROVIDERS[p].type === 'openai' || p === 'omega'));
+  const results = (await Promise.all(names.map(async (p) => {
+    if (p === 'omega') {
+      const base = (process.env.OMEGA_BASE || 'https://api.omegatech.app').replace(/\/$/, '');
+      const routes = { wormgpt: '/api/ai/wormgpt?action=chat&message=Say%20hi&newChat=true&forceNew=true', 'qwen3-coder': '/api/ai/Qwen3-coder?action=chat&message=Say%20hi', llamacoder: '/api/ai/llamacoder?action=create&prompt=Say%20hi&quality=high', qwen: '/api/ai/Qwen?action=chat&message=Say%20hi', chatai: '/api/ai/Chatai?action=chat&message=Say%20hi&model=chatgpt', chatbot: '/api/ai/Chatbot?action=chat&message=Say%20hi&needSearch=false', claude: '/api/ai/Claude?text=Say%20hi' };
+      return Promise.all(models.idsOf('omega').map(async (id) => {
+        const key = id.toLowerCase(), t0 = Date.now();
+        try { const r = await fetch(base + (routes[key] || ''), { signal: AbortSignal.timeout(30000) }); const raw = await r.text(); let j; try { j = JSON.parse(raw); } catch { j = raw; } const ok = r.ok && !(j && j.success === false) && !!(typeof j === 'string' ? j.trim() : j && (j.reply || j.message || j.response || j.answer || j.files || j.result)); return { provider: 'omega', label: 'OmegaTech · ' + id, model: id, ok, status: r.status, ms: Date.now() - t0, note: ok ? 'working' : raw.slice(0, 180) }; } catch (e) { return { provider: 'omega', label: 'OmegaTech · ' + id, model: id, ok: false, status: 0, ms: Date.now() - t0, note: String(e.message).slice(0, 160) }; }
+      }));
+    }
     const P = models.PROVIDERS[p], base = (P.base() || '').replace(/\/$/, ''), t0 = Date.now();
     const H = Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + models.keyOf(P) }, P.noauth || !P.hdr ? {} : P.hdr(models.keyOf(P)));
     const call = async (model) => { const r = await fetch(base + '/chat/completions', { method: 'POST', signal: AbortSignal.timeout(25000), headers: H, body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: 'user', content: 'Say hi' }] }) }); return { r, body: r.ok ? '' : (await r.text()).slice(0, 200) }; };
@@ -62,7 +70,7 @@ router.post('/test', wrap(async (req, res) => {
       }
       return { provider: p, label: P.label, model, ok: x.r.ok, status: x.r.status, ms: Date.now() - t0, note: note || (x.r.ok ? 'working' : x.body) };
     } catch (e) { return { provider: p, label: P.label, ok: false, status: 0, ms: Date.now() - t0, note: String(e.message).slice(0, 160) }; }
-  }));
+  }))).flat();
   results.forEach((r) => { if (r.ok) models.reset && 0; });
   res.json({ results });
 }));

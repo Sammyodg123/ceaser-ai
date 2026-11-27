@@ -68,4 +68,4 @@ Prices/allowances: edit PLANS in `src/core.js`.
 Every provider whose key is found in the environment (Render dashboard, `.env`, or Admin panel) shows up in the chat's model picker automatically.
 Extra AIs not built in: set `NAME_API_KEY` + `NAME_BASE_URL` (any OpenAI-compatible API; a few names like SAMBANOVA, DEEPINFRA, HYPERBOLIC need only the key).
 In Admin → "Add a new AI" → Save changes: live immediately. Render dashboard edits still need Render's own redeploy.
-Auto → Censored / Uncensored only changes the answer style (blunt vs polished); the same safety rules apply to both.
+Auto → Censored / Uncensored categorizes the request and selects a matching engine. OmegaTech’s WormGPT, Qwen3-coder, LlamaCoder, Qwen, Chatai, Chatbot and Claude routes are visible by default; set OMEGA_AI=off to hide them. Unavailable or empty upstream replies automatically fall through to the next working engine, and both the Admin test panel and chat use the same endpoint adapters. Censored and uncensored are style/routing labels only; the same safety rules apply to both.

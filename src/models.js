@@ -30,8 +30,8 @@ const PROVIDERS = {
   ollama:     { key: 'OLLAMA_BASE_URL',    type: OA, label: 'Ollama (local)', noauth: true, base: () => process.env.OLLAMA_BASE_URL,                              model: () => 'llama3.2' },
   // FREE, no key needed (anonymous public API). Turn off with FREE_AI=off. Always last so it is only the Auto fallback when nothing else is set.
   pollinations: { key: null, always: true, free: true, noauth: true, vision: true, type: OA, label: 'Free AI', base: () => process.env.FREE_BASE_URL || 'https://text.pollinations.ai/openai', model: () => process.env.FREE_MODEL || 'openai' },
-  // Optional free engines from api.omegatech.app (unofficial, may be slow or change). Turn on with OMEGA_AI=on in Admin.
-  omega:      { key: 'OMEGA_AI', type: 'omega', free: true, label: 'Omega', model: () => 'Qwen3-coder' },
+  // Public engines from api.omegatech.app. Enabled by default; set OMEGA_AI=off to hide them.
+  omega:      { key: 'OMEGA_AI', type: 'omega', free: true, label: 'OmegaTech', model: () => 'Qwen3-coder' },
   custom:     { key: 'CUSTOM_API_KEY',     type: OA, label: 'Custom',        base: () => process.env.CUSTOM_BASE_URL || '',                                    model: () => '' },
 };
 Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : k === 'omega' ? 'OMEGA' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
@@ -54,7 +54,7 @@ function syncDynamic() {
 // keys pasted into dashboards often carry quotes, spaces or a trailing newline: strip them so the provider does not answer 401
 const clean = (v) => String(v == null ? '' : v).trim().replace(/^["']|["']$/g, '').trim();
 const keyOf = (P) => (P && P.key ? clean(process.env[P.key]) : '');
-const hasKey = (p) => { syncDynamic(); const P = PROVIDERS[p]; if (!P) return false; if (p === 'omega') return /^(on|1|true|yes)$/i.test(clean(process.env.OMEGA_AI)); if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
+const hasKey = (p) => { syncDynamic(); const P = PROVIDERS[p]; if (!P) return false; if (p === 'omega') return !/^(off|0|false|no)$/i.test(clean(process.env.OMEGA_AI || 'on')); if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
 // ---- dynamic model discovery: providers retire models often (Groq/Gemini/NVIDIA all 404/410 on old names), so ask the provider what it has ----
 const found = {}, cooled = {};
 const BADM = /embed|whisper|tts|guard|moderat|rerank|image|audio|safety|orpheus|transcri|dall|clip|ocr|parse|retriev|vision-preview|imagen|veo|live|robotics|aqa|learnlm|gemma-?\d*n?-?it?$/i;
@@ -89,7 +89,7 @@ const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
 // default model id(s) of a provider: <PREFIX>_MODELS="a,b,c"  or  <PREFIX>_MODEL=a  or built-in default
 function idsOf(p) {
   const P = PROVIDERS[p], list = process.env[P.prefix + '_MODELS'], one = process.env[P.prefix + '_MODEL'];
-  const ids = p === 'omega' && !list ? ['Qwen', 'Qwen3-coder', 'Chatai', 'Chatbot', 'Claude'] : list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || (P.dynamic && found[p]) || P.model()].filter(Boolean);
+  const ids = p === 'omega' && !list ? ['WormGPT', 'Qwen3-coder', 'llamacoder', 'Qwen', 'Chatai', 'Chatbot', 'Claude'] : list ? list.split(',').map((x) => x.trim()).filter(Boolean) : [one || (P.dynamic && found[p]) || P.model()].filter(Boolean);
   return ids;
 }
 function all() {
@@ -104,7 +104,7 @@ function all() {
   Object.keys(PROVIDERS).forEach((p) => {
     if (!hasKey(p)) return;
     const ids = idsOf(p);
-    ids.forEach((id) => out.push({ id, label: ids.length > 1 ? PROVIDERS[p].label + ' · ' + id.split('/').pop() : PROVIDERS[p].label, desc: id, provider: p, cost: PROVIDERS[p].free ? 1 : extra() }));
+    ids.forEach((id) => out.push({ id, label: ids.length > 1 ? PROVIDERS[p].label + ' · ' + id.split('/').pop() : PROVIDERS[p].label, desc: id, provider: p, category: categoryForModel(id, p), cost: PROVIDERS[p].free ? 1 : extra() }));
   });
   return out;
 }
@@ -113,6 +113,10 @@ function autoProvider() {
   const want = (process.env.AUTO_PROVIDER || 'manus').toLowerCase();
   if (hasKey(want)) return want;
   return Object.keys(PROVIDERS).find(hasKey) || null; // no keys at all -> the free public AI keeps the app working
+}
+function categoryForModel(id, provider) {
+  const n = String(id || '').toLowerCase();
+  return provider === 'omega' && /worm|llama.?coder/.test(n) ? 'uncensored' : 'censored';
 }
 // ---------------------------------------------------------------------------
 // SMART AUTO ROUTING  (what "Auto" does for every message)
@@ -154,7 +158,7 @@ function chainFor(kind, vision, category) {
   const add = (p) => { if (ok(p) && out.indexOf(p) < 0) out.push(p); };
   if (hasKey('omega')) {
     const omegaIds = idsOf('omega').map((x) => x.toLowerCase());
-    const preferred = ['qwen', 'qwen3-coder', 'chatai', 'chatbot', 'claude'];
+    const preferred = category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder'] : ['qwen3-coder', 'qwen', 'chatbot', 'claude'];
     if (preferred.some((x) => omegaIds.includes(x))) add('omega');
   }
   pref.forEach(add);
@@ -172,7 +176,7 @@ function plan(reqId, text, hasImage, tone) {
   }
   const kind = intent(text);
   const category = categoryOf(text, tone);
-  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? 'Qwen' : (idsOf(p)[0] || ''), cost: 1, label: PROVIDERS[p].label }));
+  const chain = chainFor(kind, hasImage, category).map((p) => ({ provider: p, model: p === 'omega' ? (category === 'uncensored' ? 'WormGPT' : 'Qwen3-coder') : (idsOf(p)[0] || ''), cost: 1, label: PROVIDERS[p].label }));
   if (!chain.length) { const f = find(reqId); return f ? { kind, category, auto: true, chain: [{ provider: f.provider, model: f.id, cost: f.cost || 1, label: PROVIDERS[f.provider].label }] } : null; }
   return { kind, category, auto: true, chain };
 }
@@ -183,7 +187,7 @@ const list = () => {
   const rest = all().filter((m) => hasKey(m.provider)); // every keyed engine stays visible, Auto is its own entry
   return [auto].concat(rest);
 };
-const pub = () => list().map(({ id, label, desc, cost, provider }) => ({ provider, id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'free / normal cost'), cost, group: id === 'auto' ? 'Smart' : (PROVIDERS[provider] ? PROVIDERS[provider].label : 'Other') }));
+const pub = () => list().map(({ id, label, desc, cost, provider, category }) => ({ provider, id, label, desc: id === 'auto' ? desc : desc + ' · ' + (cost > 1 ? cost + '× tokens' : 'free / normal cost'), cost, category: id === 'auto' ? 'smart' : (category || categoryForModel(id, provider)), group: id === 'auto' ? 'Smart' : (category === 'uncensored' ? 'Uncensored' : 'Censored') }));
 function find(id) {
   const l = list(); if (!l.length) return null;
   const m = (id && l.find((x) => x.id === id)) || l[0];

@@ -257,11 +257,19 @@ async function streamReply(req, res, conv) {
     const rawPrompt = splitImages(lastRaw).text.slice(0, 1800);
     const prompt = pl.category === 'uncensored' ? 'Answer in a harsh, blunt, direct style with no filler. Keep the same safety boundaries and do not assist harmful or illegal acts.\n\nUser request:\n' + rawPrompt : rawPrompt;
     const q = encodeURIComponent(prompt.slice(0, 2200)), m = String(model || 'Qwen3-coder').toLowerCase();
-    const makeRoute = (name) => ({ 'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`, qwen: `/api/ai/Qwen?action=chat&message=${q}`, claude: `/api/ai/Claude?text=${q}`,
-      chatai: `/api/ai/Chatai?action=chat&message=${q}&model=chatgpt`, chatbot: `/api/ai/Chatbot?action=chat&message=${q}&needSearch=false`, llamacoder: `/api/ai/llamacoder?action=create&prompt=${q}&quality=high` }[name]);
-    const pool = ['qwen', 'qwen3-coder', 'chatai', 'chatbot', 'claude'];
+    const makeRoute = (name) => ({
+      wormgpt: `/api/ai/wormgpt?action=chat&message=${q}&newChat=true&forceNew=true`,
+      'qwen3-coder': `/api/ai/Qwen3-coder?action=chat&message=${q}`,
+      llamacoder: `/api/ai/llamacoder?action=create&prompt=${q}&quality=high`,
+      qwen: `/api/ai/Qwen?action=chat&message=${q}`,
+      chatai: `/api/ai/Chatai?action=chat&message=${q}&model=chatgpt`,
+      chatbot: `/api/ai/Chatbot?action=chat&message=${q}&needSearch=false`,
+      claude: `/api/ai/Claude?text=${q}`
+    }[name]);
+    const pool = pl.category === 'uncensored' ? ['wormgpt', 'llamacoder', 'qwen3-coder', 'qwen', 'chatbot', 'claude', 'chatai'] : ['qwen3-coder', 'qwen', 'chatbot', 'claude', 'llamacoder', 'chatai', 'wormgpt'];
     const candidates = [m].concat(pool.filter((x) => x !== m));
-    const pick = (v, d) => { if (typeof v === 'string') return v; if (!v || typeof v !== 'object' || d > 3) return ''; for (const k of ['result', 'response', 'message', 'answer', 'reply', 'text', 'content', 'output', 'data']) { const t = pick(v[k], d + 1); if (t) return t; } return ''; };
+    const pick = (v, d) => { if (typeof v === 'string') return v; if (!v || typeof v !== 'object' || d > 5) return ''; for (const k of ['result', 'response', 'message', 'answer', 'reply', 'text', 'content', 'output', 'data']) { const t = pick(v[k], d + 1); if (t) return t; } return ''; };
+    const filesText = (files) => Array.isArray(files) ? files.filter((f) => f && f.content).map((f) => '```' + (String(f.path || '').split('.').pop() || 'text') + ':' + (f.path || 'file') + '\n' + f.content + '\n```').join('\n\n') : '';
     let out = '', lastErr = null;
     for (const candidate of candidates) {
       const route = makeRoute(candidate); if (!route) continue;
@@ -269,7 +277,9 @@ async function streamReply(req, res, conv) {
         const r = await fetch(base + route, { signal: AbortSignal.any([ac.signal, AbortSignal.timeout(60000)]) });
         if (!r.ok) throw new Error(`provider ${r.status} omega`);
         const raw = await r.text(); let j; try { j = JSON.parse(raw); } catch (e) { j = raw; }
-        out = String(pick(j, 0) || '').trim(); if (!out) throw new Error('provider 502 omega empty');
+        if (j && typeof j === 'object' && j.success === false) throw new Error('provider 502 omega: ' + String(j.error || 'request failed').slice(0, 120));
+        out = String(pick(j, 0) || filesText(j && j.files) || '').trim();
+        if (!out) throw new Error('provider 502 omega empty');
         if (candidate !== m) step(`Omega fallback → ${candidate}`);
         break;
       } catch (e) { if (ac.signal.aborted) throw e; lastErr = e; }

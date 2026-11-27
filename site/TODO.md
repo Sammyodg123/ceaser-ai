@@ -10,3 +10,7 @@
 - [x] Add and maintain a complete manus-routes.json page route manifest.
 - [x] Explain that SMTP app passwords send email, not SMS, and document the correct SMS-provider setup separately.
 - [ ] Connect the production backend to an SMS provider if phone-number OTP is required; this needs provider credentials and server-side endpoint changes.
+
+- [x] Add the supplied OmegaTech engines to the frontend model picker, grouped into Censored and Uncensored categories, with Auto routing for both modes.
+- [x] Connect all supplied OmegaTech endpoints through the backend, normalize their response formats, detect empty/provider-error replies, and fall back to another working engine.
+- [x] Include OmegaTech engines in the Admin test panel so endpoint health can be checked without sending a chat message.
