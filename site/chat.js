@@ -159,7 +159,7 @@
     });
   }
   function renderTk() {
-    var t = $('#tk'), b = S.bal; if (!t || !b) return; var pct = b.total ? Math.max(2, Math.min(100, b.remaining / b.total * 100)) : 0, free = (b.plan || 'free') === 'free';
+    var t = $('#tk'), b = S.bal; if (!t || !b) return; if (b.unlimited) { t.innerHTML = '<div class="r1"><span class="pl">Owner</span><span>Unlimited tokens</span></div><div class="tr"><i style="width:100%"></i></div><div class="r2"><span>Never expires</span><span class="up">∞</span></div>'; return; } var pct = b.total ? Math.max(2, Math.min(100, b.remaining / b.total * 100)) : 0, free = (b.plan || 'free') === 'free';
     var days = b.resetAt ? Math.max(0, Math.ceil((new Date(b.resetAt) - Date.now()) / 864e5)) : null;
     t.innerHTML = '<div class="r1"><span class="pl">' + cap(b.plan) + '</span><span>' + fmtK(b.remaining || 0) + ' tokens left</span></div><div class="tr"><i style="width:' + pct + '%"></i></div><div class="r2"><span>' + (days != null ? 'Resets in ' + days + ' day' + (days === 1 ? '' : 's') : '') + '</span>' + (free ? '<button class="up" data-p="plan">' + IC.tpl + 'Upgrade</button>' : '') + '</div>';
   }
@@ -363,7 +363,7 @@
   }
   function renderLow() {
     var dock = $('.dock'), b = S.bal; if (!dock) return; var old = $('#lowbar'); if (old) old.remove();
-    if (!b || !b.total || (b.plan || 'free') !== 'free' && b.remaining > 2000) return; if (b.remaining > Math.max(1000, b.total * 0.05)) return;
+    if (!b || b.unlimited || !b.total || (b.plan || 'free') !== 'free' && b.remaining > 2000) return; if (b.remaining > Math.max(1000, b.total * 0.05)) return;
     var n = el('<div class="lowbar" id="lowbar"><span>' + IC.bolt + '</span><p>' + (b.remaining <= 0 ? 'You are out of tokens.' : 'Only ' + Number(b.remaining).toLocaleString() + ' tokens left in this period.') + '</p><button>Upgrade plan</button></div>');
     n.querySelector('button').onclick = function () { go('plan'); }; dock.insertBefore(n, dock.firstChild);
   }
@@ -371,7 +371,7 @@
     var ta = $('#ta'), text = (preset || (ta && ta.value) || '').trim(); if (S.busy || (!regen && !text && !S.files.length && !S.imgs.length)) return;
     // "/image a cat wearing sunglasses" (or Image mode) generates a picture instead of chatting
     var im = !regen && /^\/(image|img)\s+([\s\S]+)/i.exec(text);
-    if (S.bal && S.bal.remaining <= 0 && !regen) { if (ta) ta.blur(); S.limitHit = true; showLimit(); renderLow(); return; }
+    if (S.bal && !S.bal.unlimited && S.bal.remaining <= 0 && !regen) { if (ta) ta.blur(); S.limitHit = true; showLimit(); renderLow(); return; }
     if (im) return sendImageGen(im[2].trim());
     var ip = !regen && !S.files.length && !S.imgs.length && imagePrompt(text); if (ip) return sendImageGen(ip);
     if (!regen && S.imode && text && !S.files.length && !S.imgs.length) return sendImageGen(text);
@@ -432,7 +432,7 @@
       '<div class="card"><h3>Recent conversations</h3><div id="d-l"><small>Loading…</small></div></div><div class="card" id="d-up" hidden style="background:var(--acs);border-color:#bfe6d3"><h3>Upgrade to Pro</h3><p style="margin:0 0 12px;color:var(--mu)">500,000 tokens a month plus voice input.</p><button class="btn" id="d-ub">See plans →</button></div>');
     var b = S.bal; if (!b) { await loadBal(); b = S.bal || {}; }
     var rem = b.remaining || 0, tot = b.total || 0, used = b.used != null ? b.used : Math.max(0, tot - rem), pct = tot ? Math.min(100, Math.round(used / tot * 100)) : 0;
-    $('#d-r').textContent = rem.toLocaleString(); $('#d-u').textContent = used.toLocaleString(); $('#d-p').textContent = cap(b.plan); $('#d-pc').textContent = pct + '% used'; $('#d-t').textContent = tot.toLocaleString() + ' total';
+    $('#d-r').textContent = b.unlimited ? '∞' : rem.toLocaleString(); $('#d-u').textContent = used.toLocaleString(); $('#d-p').textContent = b.unlimited ? 'Owner' : cap(b.plan); $('#d-pc').textContent = b.unlimited ? 'Unlimited' : pct + '% used'; $('#d-t').textContent = b.unlimited ? 'No expiry' : tot.toLocaleString() + ' total';
     if (b.resetAt) $('#d-rs').textContent = 'Resets ' + new Date(b.resetAt).toLocaleDateString(); requestAnimationFrame(function () { var f = $('#d-f'); if (f) f.style.width = pct + '%'; });
     if ((b.plan || 'free') === 'free') { $('#d-up').hidden = false; $('#d-ub').onclick = function () { go('plan'); }; }
     $('#d-c').textContent = S.convs.length; var l = $('#d-l'); l.replaceChildren();
@@ -572,7 +572,7 @@
     (async function () {
       if (!S.bal) await loadBal(); var b = S.bal || {}, free = (b.plan || 'free') === 'free', pl = $('#pl'); if (!pl) return;
       var pct = b.total ? Math.min(100, Math.round((b.used || 0) / b.total * 100)) : 0;
-      pl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:20px">' + cap(b.plan) + '</b><br><small style="color:var(--mu)">' + (b.remaining || 0).toLocaleString() + ' tokens left' + (b.resetAt ? ' · resets ' + new Date(b.resetAt).toLocaleDateString() : '') + '</small></div>' + (free ? '' : '<span class="msg">Active</span>') + '</div><div class="bar" style="margin-top:12px"><i style="width:' + pct + '%"></i></div><div class="pg" id="pg" style="margin-top:14px"></div>';
+      pl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:20px">' + (b.unlimited ? 'Owner' : cap(b.plan)) + '</b><br><small style="color:var(--mu)">' + (b.unlimited ? 'Unlimited tokens · never expires' : (b.remaining || 0).toLocaleString() + ' tokens left' + (b.resetAt ? ' · resets ' + new Date(b.resetAt).toLocaleDateString() : '')) + '</small></div>' + (b.unlimited ? '<span class="msg">Unlimited</span>' : (free ? '' : '<span class="msg">Active</span>')) + '</div><div class="bar" style="margin-top:12px"><i style="width:' + (b.unlimited ? 100 : pct) + '%"></i></div><div class="pg" id="pg" style="margin-top:14px"></div>';
       if (!free) return;
       try { var cfg = await api('GET', '/api/public/config'); (cfg.plans || []).filter(function (p) { return p.priceUsd > 0; }).forEach(function (p) {
         var c = el('<div class="pc"><b>' + esc(p.name) + '</b> <small>$' + p.priceUsd + '/mo</small><ul><li>' + Number(p.monthlyTokens || p.tokens).toLocaleString() + ' tokens / month</li><li>Streaming chat</li>' + (p.voiceInput ? '<li>Voice input</li>' : '') + '</ul><button class="btn" style="width:100%">Get ' + esc(p.name) + '</button></div>');

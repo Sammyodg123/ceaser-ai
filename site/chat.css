@@ -654,3 +654,33 @@ body{background:radial-gradient(120% 60% at 50% -10%,rgba(45,255,160,.07),transp
   .dock{padding-left:8px;padding-right:8px}
 }
 @media(prefers-reduced-motion:reduce){.comp:focus-within{transform:none}.sug button:after{display:none}}
+
+/* ===== v12: refined dynamic chat + post-OTP loader ===== */
+#boot{background:#06090e;isolation:isolate}
+#boot:before,#boot:after{content:"";position:absolute;z-index:0;width:54vmax;height:54vmax;border-radius:50%;pointer-events:none;filter:blur(2px);opacity:.22;animation:bootfloat 8s ease-in-out infinite alternate}
+#boot:before{left:-24vmax;top:-22vmax;background:radial-gradient(circle,rgba(45,255,160,.8),transparent 66%)}
+#boot:after{right:-25vmax;bottom:-24vmax;background:radial-gradient(circle,rgba(25,195,255,.75),transparent 66%);animation-delay:-3.5s}
+@keyframes bootfloat{to{transform:translate3d(7vmax,5vmax,0) scale(1.12)}}
+#boot .bt-grid{opacity:.22;mask-image:radial-gradient(circle at 50% 45%,#000,transparent 72%);-webkit-mask-image:radial-gradient(circle at 50% 45%,#000,transparent 72%)}
+#boot .bt-core{filter:drop-shadow(0 18px 32px rgba(0,0,0,.35));transform:scale(.96);animation:bootcore 2.8s ease-in-out infinite}
+@keyframes bootcore{50%{transform:scale(1.03)}}
+#boot .bt-logo{box-shadow:0 0 34px -6px #2dffa0,0 0 70px -26px #19c3ff}
+#boot .bt-meta{position:relative;z-index:2;margin-top:20px;padding:0 2px}
+#boot .bt-meta span{font-weight:600;letter-spacing:.04em}
+#boot .bt-bar{height:7px;background:rgba(255,255,255,.09);box-shadow:0 0 0 1px rgba(255,255,255,.06),0 12px 32px -18px rgba(45,255,160,.8)}
+#boot .bt-bar i{background:linear-gradient(90deg,#2dffa0 0%,#19c3ff 58%,#8b7bff 100%);box-shadow:0 0 18px rgba(45,255,160,.6);transition:width .55s cubic-bezier(.2,.8,.2,1)}
+#boot .bt-bar i:after{animation:btshim .9s linear infinite}
+/* layered chat surface: depth without expensive blur */
+.shell{background:radial-gradient(80% 38% at 50% 0,rgba(45,255,160,.045),transparent 70%),radial-gradient(55% 42% at 100% 65%,rgba(25,195,255,.035),transparent 72%)!important}
+.msgs{background:linear-gradient(180deg,rgba(7,8,11,.08),rgba(7,8,11,.2))}
+.m.assistant .c{background:linear-gradient(145deg,rgba(18,23,31,.86),rgba(11,14,20,.72));border-color:rgba(255,255,255,.09);box-shadow:0 16px 38px -30px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.035)}
+.m.user .c{background:linear-gradient(145deg,rgba(36,45,57,.9),rgba(18,23,31,.9))!important;border-color:rgba(255,255,255,.12)!important}
+.hello .lg{background:linear-gradient(135deg,#2dffa0,#19c3ff);color:#04120c;box-shadow:0 12px 34px -15px rgba(45,255,160,.9),0 0 0 8px rgba(45,255,160,.045)}
+.hello h1{letter-spacing:-.035em}.hello h1 span{background:linear-gradient(90deg,#9aa3b2,#dfe3ec);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sug button{background:linear-gradient(145deg,rgba(20,25,34,.88),rgba(11,14,20,.88));border-color:rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.035);transition:transform .2s,border-color .2s,box-shadow .2s}
+.sug button:hover{transform:translateY(-3px);border-color:rgba(45,255,160,.48);box-shadow:0 16px 34px -24px rgba(45,255,160,.8)}
+.comp{background:linear-gradient(145deg,rgba(20,25,34,.96),rgba(10,13,18,.96))!important;border-color:rgba(255,255,255,.13);box-shadow:0 18px 50px -30px #000,0 0 0 1px rgba(255,255,255,.02)}
+.comp:focus-within{border-color:rgba(45,255,160,.5);box-shadow:0 0 0 4px rgba(45,255,160,.08),0 18px 50px -30px #000}
+.send{background:linear-gradient(135deg,#2dffa0,#19c3ff)!important;color:#04120c!important;box-shadow:0 8px 20px -10px rgba(45,255,160,.9)}
+@media(max-width:560px){#boot .bt-core{transform:scale(.86)}#boot .bt-meta,#boot .bt-bar{width:min(300px,84vw)}.m.assistant .c{background:rgba(14,18,25,.9);box-shadow:none}.sug button:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){#boot:before,#boot:after,#boot .bt-core{animation:none}#boot .bt-bar i:after{animation:none}}

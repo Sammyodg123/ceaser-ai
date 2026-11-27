@@ -93,12 +93,14 @@ function refreshPeriod(u) {
 }
 function balanceOf(u) {
   u = refreshPeriod(u);
+  if (isAdminEmail(u.email)) return { limit: null, used: u.used, bonus: u.bonus, remaining: null, allowance: null, total: null, unlimited: true, resetAt: null, nextReset: null, plan: 'owner' };
   const limit = planOf(u.plan).monthlyTokens, used = u.used;
   const allowance = Math.max(0, limit - used);
   return { limit, used, bonus: u.bonus, remaining: allowance + u.bonus, allowance, total: limit + u.bonus, resetAt: u.period_end, nextReset: u.period_end, plan: u.plan };
 }
 function spend(userId, tokens) {
   const u = db.prepare('SELECT * FROM users WHERE id=?').get(userId);
+  if (u && isAdminEmail(u.email)) return;
   const allowance = Math.max(0, planOf(u.plan).monthlyTokens - u.used);
   const fromAllowance = Math.min(allowance, tokens), fromBonus = Math.min(u.bonus, tokens - fromAllowance);
   db.prepare('UPDATE users SET used=used+?, bonus=bonus-? WHERE id=?').run(fromAllowance + (tokens - fromAllowance - fromBonus), fromBonus, userId);
