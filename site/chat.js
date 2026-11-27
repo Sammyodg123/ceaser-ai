@@ -229,7 +229,7 @@
     }
   }
   function drawMsgs() {
-    var inner = $('#inner'); if (!inner) return; inner.replaceChildren();
+    var inner = $('#inner'); if (!inner) return; inner.replaceChildren(); if (!S.busy) { S.pin = null; var m0 = $('#msgs'); if (m0) m0.classList.remove('pin'); }
     if (!S.msgs.length) {
       var h = el('<div class="hello"><div class="lg">C</div><h1>Welcome to CEASER AI. <span>What would you like to create today?</span></h1><p>Think. Create. Build. Ship.</p><div class="sug"></div></div>');
       SUG.forEach(function (s) { var b = el('<button><i>' + esc(s[0]) + '</i><span>' + esc(s[1]) + '</span></button>'); b.onclick = function () { send(s[1]); }; h.querySelector('.sug').appendChild(b); });
@@ -315,7 +315,7 @@
         lastR = ts;
         var n = done ? q.length : Math.max(8, Math.ceil(q.length / 5)); am.content += q.slice(0, n); q = q.slice(n);
         node.innerHTML = md(am.content, true);
-        var near = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 160; if (near) ms.scrollTop = ms.scrollHeight;
+        var near = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 160; if (near && !S.pin) ms.scrollTop = ms.scrollHeight;
       }
       if (q || !done) raf = requestAnimationFrame(tick); else if (resolve) resolve();
     }
@@ -328,6 +328,13 @@
     th.innerHTML = '<span class="sp">' + IC.ok + '</span><span class="tx">' + (label || 'Worked for ') + (sec >= 60 ? Math.floor(sec / 60) + 'm ' + (sec % 60) + 's' : sec + 's') + ' · ' + n + ' step' + (n === 1 ? '' : 's') + '</span><span class="chv">' + IC.chev + '</span>';
     th.onclick = function () { var o = thb.classList.toggle('show'); thb.classList.toggle('open', o); th.classList.toggle('open', o); };
   }
+  /* new message goes to the TOP of the screen (like ChatGPT/Venice) so the keyboard never covers the answer */
+  function pinScroll() {
+    var ms = $('#msgs'); if (!S.pin || !ms || !S.pin.isConnected) return;
+    ms.scrollTop += S.pin.getBoundingClientRect().top - ms.getBoundingClientRect().top - 6;
+  }
+  if (window.visualViewport) visualViewport.addEventListener('resize', function () { if (S.pin) { pinScroll(); setTimeout(pinScroll, 120); } });
+  document.addEventListener('scroll', function (e) { var t = e.target, h = document.querySelector('.top'); if (h && t && t.classList && (t.classList.contains('msgs') || t.classList.contains('page'))) h.classList.toggle('sc', t.scrollTop > 6); }, true);
   async function send(preset) {
     var ta = $('#ta'), text = (preset || (ta && ta.value) || '').trim(); if ((!text && !S.files.length && !S.imgs.length) || S.busy) return;
     // "/image a cat wearing sunglasses" (or Image mode) generates a picture instead of chatting
@@ -346,6 +353,7 @@
       if (!S.cur) { var cv = (await api('POST', '/api/chat/conversations')).conversation; S.cur = cv.id; S.convs.unshift(cv); renderHist(); }
       S.msgs.push(um, am); drawMsgs();
       var cn = $('#inner').lastChild.querySelector('.c'), ms = $('#msgs');
+      S.pin = $('#inner').children[$('#inner').children.length - 2]; ms.classList.add('pin'); pinScroll(); setTimeout(pinScroll, 60); setTimeout(pinScroll, 300);
       node = cn.querySelector('.body'); th = cn.querySelector('.think'); thb = cn.querySelector('.thbox'); thin = thb.querySelector('.thin');
       th.onclick = function () { var o = thb.classList.toggle('show'); th.classList.toggle('open', o); };
       tw = typer(am, node, ms, th);
@@ -361,7 +369,7 @@
     if (node && am.content) { node.innerHTML = md(am.content); mountPreviews(node); }
     if (th) { if (am.content) finishThink(th, thb, steps, t0, aborted ? 'Stopped after ' : 'Worked for '); else if (S.page === 'chat') { S.msgs = S.msgs.filter(function (m) { return m !== am; }); if (aborted) S.msgs = S.msgs.filter(function (m) { return m !== um; }); drawMsgs(); } }
     else if (!aborted) { S.msgs = S.msgs.filter(function (m) { return m !== am && m !== um; }); if (S.page === 'chat') drawMsgs(); }
-    S.ac = null; S.busy = false; syncSend(); loadConvs(); loadBal();
+    S.pin = null; S.ac = null; S.busy = false; syncSend(); loadConvs(); loadBal();
   }
   /* animated image generation: a shimmering placeholder swaps for the finished picture (saved in the chat, survives reloads) */
   async function sendImageGen(prompt) {

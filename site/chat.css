@@ -559,3 +559,15 @@ body:before,body:after{display:none!important;animation:none!important}
 .in{gap:18px}
 .m.user .c{border-radius:18px 18px 6px 18px}
 @media(prefers-reduced-motion:reduce){.wm{animation:none}}
+
+/* --- v10: transparent dynamic header, pinned new message, smaller template text --- */
+.top,.top.sc{background:transparent!important;border-bottom:1px solid transparent;transition:border-color .25s,background .25s}
+.top.sc{background:linear-gradient(rgba(7,8,11,.78),rgba(7,8,11,0))!important;border-bottom-color:rgba(255,255,255,.05)}
+.msgs.pin .in{padding-bottom:75vh}
+.tpg{gap:8px}
+.tpc{padding:11px;min-height:104px;border-radius:15px;gap:3px}
+.tpc .te,.th .te{width:32px;height:32px;border-radius:11px;font-size:16px;margin-bottom:5px}
+.tpc b{font-size:12.5px;line-height:1.25}
+.tpc small{font-size:10.5px;line-height:1.3}
+.tsr{height:42px}.tsr input{font-size:13.5px}
+.tbox .th b{font-size:14px}.tbox .th small{font-size:11.5px}

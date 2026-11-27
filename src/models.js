@@ -14,7 +14,7 @@ const PROVIDERS = {
   anthropic:  { key: 'ANTHROPIC_API_KEY',  type: 'anthropic', vision: true, label: 'Claude',        model: () => process.env.AI_MODEL || 'claude-sonnet-4-5' },
   manus:      { key: 'MANUS_API_KEY',      type: 'manus',     label: 'Manus',         model: () => 'manus-' + (process.env.MANUS_PROFILE || 'standard') },
   openai:     { key: 'OPENAI_API_KEY',     type: OA, vision: true, label: 'OpenAI',        base: () => process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',            model: () => 'gpt-4o' },
-  gemini:     { key: 'GEMINI_API_KEY',     type: OA, vision: true, label: 'Gemini',        base: () => 'https://generativelanguage.googleapis.com/v1beta/openai',            model: () => 'gemini-2.0-flash' },
+  gemini:     { key: 'GEMINI_API_KEY',     type: OA, vision: true, label: 'Gemini',        base: () => 'https://generativelanguage.googleapis.com/v1beta/openai',            model: () => 'gemini-2.5-flash', hdr: (k) => ({ 'x-goog-api-key': k }) },
   meta:       { key: 'LLAMA_API_KEY',      type: OA, label: 'Meta Llama',    base: () => process.env.LLAMA_BASE_URL || 'https://api.llama.com/compat/v1',       model: () => 'Llama-4-Maverick-17B-128E-Instruct-FP8' },
   mistral:    { key: 'MISTRAL_API_KEY',    type: OA, label: 'Mistral',       base: () => 'https://api.mistral.ai/v1',                                          model: () => 'mistral-large-latest' },
   xai:        { key: 'XAI_API_KEY',        type: OA, label: 'Grok (xAI)',    base: () => 'https://api.x.ai/v1',                                                model: () => 'grok-3' },
@@ -33,7 +33,10 @@ const PROVIDERS = {
   custom:     { key: 'CUSTOM_API_KEY',     type: OA, label: 'Custom',        base: () => process.env.CUSTOM_BASE_URL || '',                                    model: () => '' },
 };
 Object.keys(PROVIDERS).forEach((k) => { const P = PROVIDERS[k]; P.id = k; P.prefix = k === 'meta' ? 'LLAMA' : k === 'pollinations' ? 'FREE' : P.key.replace(/_(API_KEY|BASE_URL)$/, ''); });
-const hasKey = (p) => { const P = PROVIDERS[p]; if (!P) return false; if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!process.env[P.key]; };
+// keys pasted into dashboards often carry quotes, spaces or a trailing newline: strip them so the provider does not answer 401
+const clean = (v) => String(v == null ? '' : v).trim().replace(/^["']|["']$/g, '').trim();
+const keyOf = (P) => (P && P.key ? clean(process.env[P.key]) : '');
+const hasKey = (p) => { const P = PROVIDERS[p]; if (!P) return false; if (P.always) return String(process.env.FREE_AI || 'on').toLowerCase() !== 'off'; return !!keyOf(P); };
 const extra = () => Math.max(1, Number(process.env.EXTRA_MODEL_COST) || 2);
 
 // default model id(s) of a provider: <PREFIX>_MODELS="a,b,c"  or  <PREFIX>_MODEL=a  or built-in default
@@ -124,4 +127,4 @@ function find(id) {
   const m = (id && l.find((x) => x.id === id)) || l[0];
   return m.id === 'auto' ? Object.assign({}, m, { id: m.model }) : m;
 }
-module.exports = { list, pub, find, plan, intent, PROVIDERS };
+module.exports = { list, pub, find, plan, intent, PROVIDERS, keyOf, hasKey, idsOf };

@@ -2,7 +2,7 @@ const router = require('express').Router();
 const models = require('./models');
 const { cfg, db, HttpError, wrap, id, now, balanceOf, spend } = require('./core');
 
-const SYSTEM = `You are ${cfg.name}, a precise, friendly AI assistant for conversation, coding and building projects. Be concise and correct. Use Markdown. Whenever you write a script, program, config or any code, put it in a fenced code block with the language name, and keep prose around it short.`;
+const SYSTEM = `Your name is ${cfg.name}, created by ${cfg.creator}. If asked who you are or what your name is, say you are ${cfg.name}; never say you are ChatGPT, Gemini, Llama or any other model. You are a precise, friendly AI assistant for conversation, coding and building projects. Be concise and correct. Use Markdown. Whenever you write a script, program, config or any code, put it in a fenced code block with the language name, and keep prose around it short.`;
 const BUILD_RULE = `\n\nWhen asked for a website, landing page, app UI or game: reply with ONE complete, self-contained file in a single fenced block labelled like \`\`\`html:index.html (inline CSS and JS, no build step, mobile-first and responsive, modern clean design, system fonts or Google Fonts only, no placeholder images that need a network except via CSS gradients/SVG). Keep animations light so the page stays smooth on phones. Do not use localStorage. Write at most two short sentences before the code and two after.`;
 const msgDTO = (m) => ({ id: m.id, role: m.role, content: m.content, status: m.status, model: m.model, attachments: [], feedback: m.feedback,
   usage: { inputTokens: m.tokens_in, outputTokens: m.tokens_out }, createdAt: m.created_at });
@@ -185,7 +185,7 @@ async function streamReply(req, res, conv) {
     const base = P.base().replace(/\/$/, ''); if (!base) throw new Error('missing base url for ' + prov);
     const msgs = history.map((m) => ({ role: m.role, content: toOpenAIContent(m.content) }));
     const r = await fetch(base + '/chat/completions', { method: 'POST', signal: ac.signal,
-      headers: Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + process.env[P.key] }),
+      headers: Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + models.keyOf(P) }, P.noauth || !P.hdr ? {} : P.hdr(models.keyOf(P))),
       body: JSON.stringify({ model, stream: true, ...(P.free ? {} : { stream_options: { include_usage: true } }), messages: [{ role: 'system', content: SYS }, ...msgs] }) });
     if (!r.ok) throw new Error(`provider ${r.status} ${(await r.text()).slice(0, 200)}`);
     const dec = new TextDecoder(); let buf = '';
@@ -208,7 +208,7 @@ async function streamReply(req, res, conv) {
     const msgs = history.map((m) => ({ role: m.role, content: toAnthropicContent(m.content) }));
     const supportsThinking = !/^claude-3-(haiku|sonnet-20240229)/.test(model);
     const call = (think) => fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal: ac.signal,
-      headers: { 'content-type': 'application/json', 'x-api-key': process.env[P.key], 'anthropic-version': '2023-06-01' },
+      headers: { 'content-type': 'application/json', 'x-api-key': models.keyOf(P), 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model, max_tokens: think ? 8192 : 4096, stream: true, system: SYS, messages: msgs, ...(think ? { thinking: { type: 'enabled', budget_tokens: 2048 } } : {}) }) });
     let r = await call(supportsThinking);
     if (!r.ok && supportsThinking && r.status === 400) r = await call(false);
@@ -228,6 +228,7 @@ async function streamReply(req, res, conv) {
     }
   }
 
+  let lastWhy = '';
   const kindLabel = { build: 'Build task', code: 'Coding task', chat: 'Chat' }[pl.kind];
   try {
     for (let i = 0; i < pl.chain.length; i++) {
@@ -243,12 +244,14 @@ async function streamReply(req, res, conv) {
         if (ac.signal.aborted) throw e;
         console.error(`AI error (${c.provider}):`, e.message);
         if (text || i === pl.chain.length - 1) throw e; // already wrote something (or nothing left to try)
-        send('thinking', { text: `${c.label} was unavailable, trying another engine…\n` });
+        const code = (/(?:provider|manus) (\d{3})/.exec(e.message) || [])[1];
+        lastWhy = `${c.label}${code ? ' ' + code : ''}`;
+        send('thinking', { text: `${c.label} was unavailable${code ? ' (' + code + ')' : ''}, trying another engine…\n` });
       }
     }
   } catch (e) {
     if (ac.signal.aborted) status = 'stopped';
-    else { status = 'error'; send('error', { code: 'provider_error', message: 'The AI service failed. Try again.' }); }
+    else { status = 'error'; send('error', { code: 'provider_error', message: 'The AI service failed' + (lastWhy ? ' (last: ' + lastWhy + ')' : '') + '. Try again.' }); }
   }
   db.prepare('UPDATE messages SET content=?, status=?, model=?, tokens_in=?, tokens_out=? WHERE id=?').run(text, status, usedModel, tin, tout, a.id);
   db.prepare('UPDATE conversations SET last_message_at=? WHERE id=?').run(now(), conv.id);
@@ -256,6 +259,23 @@ async function streamReply(req, res, conv) {
   if (status === 'complete') send('done', { usage: { inputTokens: tin, outputTokens: tout }, model: usedModel, balance: balanceOf(req.user) });
   res.end();
 }
+
+// Admin-only: tests every configured provider with a tiny request and reports the real HTTP status (fastest way to find a bad key / URL / model).
+router.get('/diagnose', wrap(async (req, res) => {
+  if (!(req.user.role === 'admin' || (cfg.adminEmail && String(req.user.email).toLowerCase() === cfg.adminEmail))) throw new HttpError(403, 'forbidden', 'Admins only.');
+  const out = [];
+  for (const p of Object.keys(models.PROVIDERS)) {
+    const P = models.PROVIDERS[p]; if (!models.hasKey(p) || P.type !== 'openai') continue;
+    const base = (P.base() || '').replace(/\/$/, ''), t0 = Date.now();
+    try {
+      const r = await fetch(base + '/chat/completions', { method: 'POST', signal: AbortSignal.timeout(20000),
+        headers: Object.assign({ 'content-type': 'application/json' }, P.noauth ? {} : { authorization: 'Bearer ' + models.keyOf(P) }, P.noauth || !P.hdr ? {} : P.hdr(models.keyOf(P))),
+        body: JSON.stringify({ model: models.idsOf(p)[0], max_tokens: 5, messages: [{ role: 'user', content: 'Say hi' }] }) });
+      out.push({ provider: p, url: base, model: models.idsOf(p)[0], status: r.status, ms: Date.now() - t0, body: r.ok ? 'ok' : (await r.text()).slice(0, 220) });
+    } catch (e) { out.push({ provider: p, url: base, status: 0, error: String(e.message).slice(0, 160) }); }
+  }
+  res.json({ results: out });
+}));
 router.post('/conversations/:id/messages', wrap(async (req, res) => {
   const conv = own(req, req.params.id);
   let content = String(req.body.content || '').trim();
