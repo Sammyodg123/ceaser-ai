@@ -160,8 +160,17 @@
   }
   function renderTk() {
     var t = $('#tk'), b = S.bal; if (!t || !b) return; if (b.unlimited) { t.innerHTML = '<div class="r1"><span class="pl">Owner</span><span>Unlimited tokens</span></div><div class="tr"><i style="width:100%"></i></div><div class="r2"><span>Never expires</span><span class="up">∞</span></div>'; return; } var pct = b.total ? Math.max(2, Math.min(100, b.remaining / b.total * 100)) : 0, free = (b.plan || 'free') === 'free';
-    var days = b.resetAt ? Math.max(0, Math.ceil((new Date(b.resetAt) - Date.now()) / 864e5)) : null;
-    t.innerHTML = '<div class="r1"><span class="pl">' + cap(b.plan) + '</span><span>' + fmtK(b.remaining || 0) + ' tokens left</span></div><div class="tr"><i style="width:' + pct + '%"></i></div><div class="r2"><span>' + (days != null ? 'Resets in ' + days + ' day' + (days === 1 ? '' : 's') : '') + '</span>' + (free ? '<button class="up" data-p="plan">' + IC.tpl + 'Upgrade</button>' : '') + '</div>';
+    var rin = resetIn(b);
+    t.innerHTML = '<div class="r1"><span class="pl">' + cap(b.plan) + '</span><span>' + fmtK(b.remaining || 0) + ' tokens left</span></div><div class="tr"><i style="width:' + pct + '%"></i></div><div class="r2"><span>' + (rin ? 'Resets in ' + rin : '') + '</span>' + (free ? '<button class="up" data-p="plan">' + IC.tpl + 'Upgrade</button>' : '') + '</div>';
+  }
+  // "4h 12m" for the 5-hour free window, "12 days" for paid plans
+  function resetIn(b) {
+    if (!b || !b.resetAt) return null;
+    var ms = Math.max(0, new Date(b.resetAt) - Date.now()), m = Math.ceil(ms / 6e4);
+    if (m < 1) return 'less than a minute';
+    if (m < 60) return m + ' min';
+    if (ms < 48 * 36e5) { var h = Math.floor(m / 60), r = m % 60; return h + 'h' + (r ? ' ' + r + 'm' : ''); }
+    var d = Math.ceil(ms / 864e5); return d + ' day' + (d === 1 ? '' : 's');
   }
   function fmtK(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString(); }
   async function loadBal() { try { S.bal = (await api('GET', '/api/tokens')).balance || null; renderTk(); renderLow(); } catch (e) {} }
@@ -375,10 +384,10 @@
     return p || t;
   }
   /* out of tokens: friendly card in the chat + a small warning bar above the box when running low */
-  function days() { var b = S.bal || {}; return b.resetAt ? Math.max(0, Math.ceil((new Date(b.resetAt) - Date.now()) / 864e5)) : null; }
+  function days() { return resetIn(S.bal); }
   function showLimit() {
     var inner = $('#inner'); if (!inner) return; var h = inner.querySelector('.hello'); if (h) h.remove(); inner.querySelectorAll('.limit').forEach(function (x) { x.remove(); });
-    var d = days(), c = el('<div class="limit"><div class="li">' + IC.bolt + '</div><div class="lt"><b>You’ve reached your token limit</b><span>' + (d != null ? 'Your allowance resets in ' + d + ' day' + (d === 1 ? '' : 's') + '. ' : '') + 'Upgrade your plan to keep working right now.</span></div><button class="btn" id="lim">Upgrade plan ↗</button></div>');
+    var d = days(), c = el('<div class="limit"><div class="li">' + IC.bolt + '</div><div class="lt"><b>You’ve reached your token limit</b><span>' + (d ? 'Your allowance resets in ' + d + '. ' : '') + 'Upgrade your plan to keep working right now.</span></div><button class="btn" id="lim">Upgrade plan ↗</button></div>');
     c.querySelector('#lim').onclick = function () { go('plan'); }; inner.appendChild(c); var ms = $('#msgs'); if (ms) ms.scrollTop = ms.scrollHeight;
   }
   function renderLow() {
@@ -454,7 +463,7 @@
     var b = S.bal; if (!b) { await loadBal(); b = S.bal || {}; }
     var rem = b.remaining || 0, tot = b.total || 0, used = b.used != null ? b.used : Math.max(0, tot - rem), pct = tot ? Math.min(100, Math.round(used / tot * 100)) : 0;
     $('#d-r').textContent = b.unlimited ? '∞' : rem.toLocaleString(); $('#d-u').textContent = used.toLocaleString(); $('#d-p').textContent = b.unlimited ? 'Owner' : cap(b.plan); $('#d-pc').textContent = b.unlimited ? 'Unlimited' : pct + '% used'; $('#d-t').textContent = b.unlimited ? 'No expiry' : tot.toLocaleString() + ' total';
-    if (b.resetAt) $('#d-rs').textContent = 'Resets ' + new Date(b.resetAt).toLocaleDateString(); requestAnimationFrame(function () { var f = $('#d-f'); if (f) f.style.width = pct + '%'; });
+    if (b.resetAt) $('#d-rs').textContent = 'Resets in ' + resetIn(b); requestAnimationFrame(function () { var f = $('#d-f'); if (f) f.style.width = pct + '%'; });
     if ((b.plan || 'free') === 'free') { $('#d-up').hidden = false; $('#d-ub').onclick = function () { go('plan'); }; }
     $('#d-c').textContent = S.convs.length; var l = $('#d-l'); l.replaceChildren();
     if (!S.convs.length) l.innerHTML = '<small>No conversations yet. Start chatting!</small>';
@@ -593,7 +602,7 @@
     var orig = {};
     $('#adm', w).innerHTML = data.groups.map(function (g) { return '<div class="card"><h3>' + esc(g.title) + '</h3>' + g.fields.map(function (f) { orig[f.k] = f.value; return '<label class="afl"><span>' + esc(f.k) + (f.set ? ' <i class="aon">set</i>' : '') + '</span><input data-k="' + esc(f.k) + '" value="' + esc(f.value) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></label>'; }).join('') + '</div>'; }).join('') +
       '<div class="card"><h3>Add a new AI</h3><p class="sb" style="margin:0 0 8px">Any OpenAI-compatible API. Fill the three boxes, press Save changes: it shows up in the model picker right away, no restart.</p><label class="afl"><span>Name (letters/numbers, e.g. ACME)</span><input id="nai-n" autocomplete="off" autocapitalize="characters" spellcheck="false"></label><label class="afl"><span>API key</span><input id="nai-k" autocomplete="off" autocapitalize="off" spellcheck="false"></label><label class="afl"><span>Base URL (e.g. https://api.acme.com/v1)</span><input id="nai-u" autocomplete="off" autocapitalize="off" spellcheck="false"></label></div>' +
-      '<div class="card"><button class="btn" id="asv" style="width:100%">Save changes</button><div style="display:flex;gap:8px;margin-top:10px"><button class="btn g" id="ats" style="flex:1">Test engines</button><button class="btn g" id="ars" style="flex:1">Restart server</button></div><button class="btn g" id="ati" style="width:100%;margin-top:8px">Test image generation</button><div id="ares" class="ares"></div></div>';
+      '<div class="card"><button class="btn" id="asv" style="width:100%">Save changes</button><div style="display:flex;gap:8px;margin-top:10px"><button class="btn g" id="ats" style="flex:1">Test engines</button><button class="btn g" id="ars" style="flex:1">Restart server</button></div><button class="btn g" id="ati" style="width:100%;margin-top:8px">Test image generation</button><button class="btn g" id="atp" style="width:100%;margin-top:8px">Test payments</button><div id="ares" class="ares"></div></div>';
     $('#asv', w).onclick = async function () {
       var vals = {}; w.querySelectorAll('input[data-k]').forEach(function (i) { if (i.value !== orig[i.dataset.k]) vals[i.dataset.k] = i.value; });
       var nn = ($('#nai-n', w).value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), nk = $('#nai-k', w).value.trim(), nu = $('#nai-u', w).value.trim();
@@ -605,6 +614,11 @@
       var b = this, r = $('#ares', w); b.disabled = true; b.textContent = 'Testing…'; r.innerHTML = '';
       try { var o = await api('POST', '/api/admin/test'); r.innerHTML = o.results.map(function (x) { return '<div class="ar ' + (x.ok ? 'ok' : 'bad') + '"><b>' + esc(x.label) + '</b> · ' + (x.ok ? 'working' : 'failed ' + x.status) + ' · ' + x.ms + 'ms<small>' + esc((x.model ? x.model + ' · ' : '') + (x.note || '')) + '</small></div>'; }).join('') || '<small>No engines with a key.</small>'; } catch (e) { r.textContent = e.message; }
       b.disabled = false; b.textContent = 'Test engines';
+    };
+    $('#atp', w).onclick = async function () {
+      var b = this, r = $('#ares', w); b.disabled = true; b.textContent = 'Testing…'; r.innerHTML = '';
+      try { var o = await api('POST', '/api/admin/payments/test'); r.innerHTML = o.results.map(function (x) { return '<div class="ar ' + (x.ok ? 'ok' : 'bad') + '"><b>' + esc(x.label) + '</b> · ' + (x.ok ? (x.shown ? 'ready for buyers' : 'works, but hidden by Payment methods') : 'not ready') + '<small>' + esc(x.note || '') + '</small></div>'; }).join(''); } catch (e) { r.textContent = e.message; }
+      b.disabled = false; b.textContent = 'Test payments';
     };
     $('#ati', w).onclick = async function () {
       var b = this, r = $('#ares', w); b.disabled = true; b.textContent = 'Generating…';
@@ -680,13 +694,30 @@
     (async function () {
       if (!S.bal) await loadBal(); var b = S.bal || {}, free = (b.plan || 'free') === 'free', pl = $('#pl'); if (!pl) return;
       var pct = b.total ? Math.min(100, Math.round((b.used || 0) / b.total * 100)) : 0;
-      pl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:20px">' + (b.unlimited ? 'Owner' : cap(b.plan)) + '</b><br><small style="color:var(--mu)">' + (b.unlimited ? 'Unlimited tokens · never expires' : (b.remaining || 0).toLocaleString() + ' tokens left' + (b.resetAt ? ' · resets ' + new Date(b.resetAt).toLocaleDateString() : '')) + '</small></div>' + (b.unlimited ? '<span class="msg">Unlimited</span>' : (free ? '' : '<span class="msg">Active</span>')) + '</div><div class="bar" style="margin-top:12px"><i style="width:' + (b.unlimited ? 100 : pct) + '%"></i></div><div class="pg" id="pg" style="margin-top:14px"></div>';
+      pl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between"><div><b style="font-size:20px">' + (b.unlimited ? 'Owner' : cap(b.plan)) + '</b><br><small style="color:var(--mu)">' + (b.unlimited ? 'Unlimited tokens · never expires' : (b.remaining || 0).toLocaleString() + ' tokens left' + (b.resetAt ? ' · resets in ' + resetIn(b) : '')) + '</small></div>' + (b.unlimited ? '<span class="msg">Unlimited</span>' : (free ? '' : '<span class="msg">Active</span>')) + '</div><div class="bar" style="margin-top:12px"><i style="width:' + (b.unlimited ? 100 : pct) + '%"></i></div><div class="pg" id="pg" style="margin-top:14px"></div>';
       if (!free) return;
       try { var cfg = await api('GET', '/api/public/config'); (cfg.plans || []).filter(function (p) { return p.priceUsd > 0; }).forEach(function (p) {
         var c = el('<div class="pc"><b>' + esc(p.name) + '</b> <small>$' + p.priceUsd + '/mo</small><ul><li>' + Number(p.monthlyTokens || p.tokens).toLocaleString() + ' tokens / month</li><li>Streaming chat</li>' + (p.voiceInput ? '<li>Voice input</li>' : '') + '</ul><button class="btn" style="width:100%">Get ' + esc(p.name) + '</button></div>');
-        c.querySelector('button').onclick = async function () { try { var r = await api('POST', '/api/billing/checkout', { plan: p.id, provider: 'flutterwave' }); if (r.url) location.href = r.url; } catch (e) { toast(e.message || 'Billing not configured yet.'); } }; $('#pg').appendChild(c); }); } catch (e) {}
+        c.querySelector('button').onclick = function () { pickMethod(p, (cfg.payments && cfg.payments.methods) || []); }; $('#pg').appendChild(c); });
+        var fp = (cfg.plans || []).filter(function (p) { return p.id === 'free'; })[0];
+        if (fp && fp.resetHours) $('#pg').insertAdjacentHTML('beforebegin', '<p class="sb" style="margin:14px 0 0">Free plan: ' + Number(fp.monthlyTokens).toLocaleString() + ' tokens, refilled every ' + fp.resetHours + ' hours.</p>'); } catch (e) {}
     })();
     $('#del').onclick = function () { if (!confirm('Permanently delete your account and all data?') || !confirm('Last chance — delete everything?')) return; api('DELETE', '/api/auth/me').then(function () { location.replace('/'); }).catch(function (e) { toast(e.message); }); };
+  }
+
+  /* ---------- pay: pick Flutterwave, PayPal or Stripe ---------- */
+  var PAYM = { flutterwave: 'Card, bank transfer or mobile money', paypal: 'PayPal balance or card', stripe: 'Credit or debit card' };
+  async function payWith(plan, provider) {
+    try { var r = await api('POST', '/api/billing/checkout', { plan: plan.id, provider: provider }); if (r.url) location.href = r.url; }
+    catch (e) { toast(e.message || 'Could not start the payment.'); }
+  }
+  function pickMethod(plan, methods) {
+    if (!methods.length) return toast('Payments are not set up yet.');
+    if (methods.length === 1) return payWith(plan, methods[0].id);
+    var sh = $('#sheet');
+    sh.innerHTML = '<div class="box"><h3>Pay for ' + esc(plan.name) + ' · $' + plan.priceUsd + '</h3>' + methods.map(function (m) { return '<button class="opt" data-m="' + esc(m.id) + '"><div><b>' + esc(m.label) + '</b><small>' + esc(PAYM[m.id] || '') + '</small></div></button>'; }).join('') + '</div>';
+    sh.hidden = false;
+    sh.onclick = function (e) { var b = e.target.closest('[data-m]'); if (b) { sh.hidden = true; payWith(plan, b.dataset.m); } else if (e.target === sh) sh.hidden = true; };
   }
 
   /* ---------- top-right menu ---------- */
@@ -740,6 +771,8 @@
     if (innerWidth >= 960) navOpen(true);
     loadBal(); stage(86, 'Loading your chats…'); await loadConvs();
     var h = location.hash.slice(1); go(['chat', 'templates', 'dashboard', 'plan', 'referrals', 'team', 'settings', 'admin'].indexOf(h) > -1 ? h : 'chat', true);
+    var pay = new URLSearchParams(location.search).get('pay');
+    if (pay) { setTimeout(function () { toast(pay === 'ok' ? 'Payment received. Your plan is active.' : pay === 'cancelled' ? 'Payment cancelled. You were not charged.' : 'We could not confirm the payment. If you were charged, contact support.'); }, 1200); history.replaceState(null, '', location.pathname + '#plan'); if (pay === 'ok') loadBal(); }
     ping(); stage(100, 'Ready'); var b = $('#boot'), wait = Math.max(250, 900 - (performance.now() || 0)); setTimeout(function () { b.classList.add('x'); setTimeout(function () { b.remove(); }, 420); }, wait);
   })();
 })();

@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
-const { cfg, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, userDTO, isAdminEmail } = require('./core');
+const { cfg, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, userDTO, isAdminEmail, freeHours } = require('./core');
 
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false,
   handler: (req, res) => res.status(429).json({ error: { code: 'rate_limited', message: 'Too many attempts, try later.' } }) });
@@ -67,7 +67,7 @@ router.post('/signup', limiter, wrap(async (req, res) => {
   const uid = id();
   db.prepare('INSERT INTO users(id,name,email,pass,role,locale,ref_code,referred_by,period_end) VALUES(?,?,?,?,?,?,?,?,?)')
     .run(uid, name.trim().slice(0, 80), mail, await bcrypt.hash(password, 12), isAdminEmail(mail) ? 'admin' : 'user',
-      locale === 'fr' ? 'fr' : 'en', rand(4), referrer?.id || null, inDays(30));
+      locale === 'fr' ? 'fr' : 'en', rand(4), referrer?.id || null, inMins(freeHours() * 60));
   const u = db.prepare('SELECT * FROM users WHERE id=?').get(uid);
   startSession(res, uid);
   sendVerification(u).catch((e) => console.error('mail error', e.message));

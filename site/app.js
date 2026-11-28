@@ -92,7 +92,7 @@
       '<div class="step rv"><b>02</b><h3>Watch it think</h3><p>Replies stream in live, with clean code blocks you can copy in one tap.</p></div>' +
       '<div class="step rv"><b>03</b><h3>Keep going</h3><p>Every chat is saved and searchable, so you can pick up right where you left off.</p></div></div></section>' +
       '<section class="sec" id="faq"><h2 class="rv">Frequently asked <span class="grad">questions</span></h2><div class="faq rv">' +
-      '<details><summary>What counts as a token?</summary><p>Tokens cover both what you send and what the AI writes back. Your balance resets every 30 days.</p></details>' +
+      '<details><summary>What counts as a token?</summary><p>Tokens cover both what you send and what the AI writes back. Free tokens refill every 5 hours. Paid plans renew every 30 days.</p></details>' +
       '<details><summary>Is it really free to start?</summary><p>Yes. Every account gets free tokens, and you can upgrade any time for a bigger allowance.</p></details>' +
       '<details><summary>Do I need to verify my email?</summary><p>Yes. We send a 6-digit code to your inbox when you sign up, which keeps accounts secure.</p></details>' +
       '<details><summary>Are my chats private?</summary><p>Your conversations are tied to your account and protected by secure sessions.</p></details></div></section>' +
@@ -151,7 +151,7 @@
     box.replaceChildren();
     plans.forEach(function (p, i) {
       var c = el('<div class="card plan rv' + (i === 1 ? ' hot' : '') + '"><h3>' + esc(p.name) + '</h3><div class="pr">$' + p.priceUsd + '<small> /month</small></div><ul><li>' +
-        Number(p.monthlyTokens || p.tokens).toLocaleString() + ' tokens / month</li><li>Streaming chat</li><li>Saved conversations</li>' + (p.voiceInput ? '<li>Voice input</li>' : '') + '</ul><button class="btn' + (i === 1 ? '' : ' ghost') + '" style="width:100%">' + (p.priceUsd ? 'Get ' + esc(p.name) : 'Start free') + '</button></div>');
+        Number(p.monthlyTokens || p.tokens).toLocaleString() + (p.resetHours ? ' tokens every ' + p.resetHours + ' hours' : ' tokens / month') + '</li><li>Streaming chat</li><li>Saved conversations</li>' + (p.voiceInput ? '<li>Voice input</li>' : '') + '</ul><button class="btn' + (i === 1 ? '' : ' ghost') + '" style="width:100%">' + (p.priceUsd ? 'Get ' + esc(p.name) : 'Start free') + '</button></div>');
       c.querySelector('button').onclick = function () { authModal('signup'); };
       box.appendChild(c);
     });

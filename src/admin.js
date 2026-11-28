@@ -4,6 +4,7 @@
 const express = require('express'), fs = require('fs'), path = require('path');
 const { cfg, HttpError, wrap, isAdminEmail, db, balanceOf } = require('./core');
 const models = require('./models');
+const billing = require('./billing');
 const router = express.Router();
 const FILE = path.join(path.dirname(path.resolve(process.env.DB_PATH || './data/app.db')), 'settings.json');
 
@@ -12,7 +13,11 @@ const GROUPS = [
   ['Model and endpoint overrides (empty = built-in/default)', ['OMEGA_MODELS', 'GROQ_MODEL', 'GEMINI_MODEL', 'GEMINI_MODELS', 'GEMINI_BASE_URL', 'NVIDIA_MODEL', 'VENICE_MODEL', 'VENICE_MODELS', 'VENICE_BASE_URL', 'OPENAI_MODEL', 'OPENAI_MODELS', 'OPENAI_BASE_URL', 'LLAMA_BASE_URL', 'CUSTOM_MODEL', 'CUSTOM_BASE_URL', 'FREE_MODEL', 'FREE_BASE_URL']],
   ['Routing', ['AUTO_PROVIDER', 'CHAT_PROVIDERS', 'CODE_PROVIDERS', 'WEBSITE_PROVIDERS', 'EXTRA_MODEL_COST', 'FREE_AI']],
   ['Images', ['IMAGE_PROVIDERS', 'HF_TOKEN', 'IMAGE_FREE']],
-  ['Payments (Flutterwave)', ['FLW_SECRET_KEY', 'FLW_PUBLIC_KEY', 'FLW_SECRET_HASH', 'FLW_CURRENCY', 'FLW_RATE', 'PROMO_CODES']],
+  ['Payments: which methods buyers can pick (empty = every method that has keys)', ['PAYMENT_METHODS', 'PROMO_CODES']],
+  ['Payments: Flutterwave', ['FLW_SECRET_KEY', 'FLW_PUBLIC_KEY', 'FLW_SECRET_HASH', 'FLW_CURRENCY', 'FLW_RATE']],
+  ['Payments: PayPal (PAYPAL_MODE = live or sandbox)', ['PAYPAL_CLIENT_ID', 'PAYPAL_SECRET', 'PAYPAL_MODE']],
+  ['Payments: Stripe', ['STRIPE_SECRET_KEY', 'STRIPE_PUBLIC_KEY', 'STRIPE_WEBHOOK_SECRET']],
+  ['Free plan', ['FREE_RESET_HOURS']],
   ['Email', ['ADMIN_EMAIL', 'BREVO_API_KEY', 'MAIL_FROM']],
 ];
 const ALLOWED = new Set(GROUPS.flatMap((g) => g[1]));
@@ -91,6 +96,7 @@ router.post('/users/:id/points', (req, res) => {
   db.prepare('UPDATE users SET bonus=MAX(0, bonus+?) WHERE id=?').run(amount, u.id);
   res.json({ ok: true, user: userRow(db.prepare('SELECT * FROM users WHERE id=?').get(u.id)) });
 });
+router.post('/payments/test', wrap(async (req, res) => res.json({ results: await billing.testAll() })));
 router.post('/restart', (req, res) => { res.json({ ok: true }); setTimeout(() => process.exit(0), 500); }); // the host (Render) starts it again automatically
 
 module.exports = router;

@@ -69,3 +69,10 @@ Every provider whose key is found in the environment (Render dashboard, `.env`, 
 Extra AIs not built in: set `NAME_API_KEY` + `NAME_BASE_URL` (any OpenAI-compatible API; a few names like SAMBANOVA, DEEPINFRA, HYPERBOLIC need only the key).
 In Admin → "Add a new AI" → Save changes: live immediately. Render dashboard edits still need Render's own redeploy.
 Auto → Censored / Uncensored categorizes the request and selects a matching engine. The WormGPT, Qwen3-coder, LlamaCoder, Qwen, Chatai, Chatbot and Claude routes are visible by default; set OMEGA_AI=off to hide them. Unavailable or empty upstream replies automatically fall through to the next working engine, and both the Admin test panel and chat use the same endpoint adapters. Censored and uncensored are style/routing labels only; the same safety rules apply to both.
+
+## Payments (Flutterwave, PayPal, Stripe)
+Buyers choose one at checkout. Put the keys in **Admin -> Payments** (live, no redeploy) or in `.env`.
+Admin -> Test payments checks every saved key. Flutterwave: `FLW_SECRET_KEY`, `FLW_SECRET_HASH`. PayPal: `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, `PAYPAL_MODE` (live or sandbox), no webhook needed.
+Stripe: `STRIPE_SECRET_KEY`; for the backup webhook add `https://YOUR-SITE/api/billing/webhook/stripe` (event `checkout.session.completed`) and save its signing secret as `STRIPE_WEBHOOK_SECRET`.
+Hide a method with `PAYMENT_METHODS` (for example `paypal,stripe`). Admin keys are saved in `data/settings.json`; on hosts that wipe the disk on redeploy, keep a copy in the host's environment variables too.
+Free plan tokens refill every 5 hours (`FREE_RESET_HOURS`). Paid plans renew every 30 days.

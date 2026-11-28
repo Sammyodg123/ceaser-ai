@@ -21,7 +21,7 @@ const cfg = {
 };
 // Edit prices / allowances here
 const PLANS = [
-  { id: 'free', name: 'Free', priceUsd: 0, monthlyTokens: 20000, tokens: 20000, voiceInput: false },
+  { id: 'free', name: 'Free', priceUsd: 0, monthlyTokens: 20000, tokens: 20000, voiceInput: false, resetHours: 5 }, // free tokens refill every 5 hours (change FREE_RESET_HOURS in Admin)
   { id: 'pro', name: 'Pro', priceUsd: 1.99, monthlyTokens: 500000, tokens: 500000, voiceInput: true },
   { id: 'premium', name: 'Premium', priceUsd: 5, monthlyTokens: 2000000, tokens: 2000000, voiceInput: true },
 ];
@@ -81,13 +81,17 @@ async function sendMailSmtp(to, subject, html) {
 }
 
 // ---------- tokens / balance ----------
+// Free plan: the allowance refills every FREE_RESET_HOURS (default 5). Paid plans: every 30 days from the day they paid.
+const freeHours = () => Math.min(720, Math.max(1, Number(process.env.FREE_RESET_HOURS) || 5));
 function refreshPeriod(u) {
   if (u.plan !== 'free' && u.plan_expires && u.plan_expires < now()) {
     db.prepare("UPDATE users SET plan='free', plan_expires=NULL WHERE id=?").run(u.id);
   }
   const cur = db.prepare('SELECT * FROM users WHERE id=?').get(u.id);
   if (!cur.period_end || cur.period_end < now()) {
-    db.prepare('UPDATE users SET used=0, period_end=? WHERE id=?').run(inDays(30), u.id);
+    db.prepare('UPDATE users SET used=0, period_end=? WHERE id=?').run(cur.plan === 'free' ? inMins(freeHours() * 60) : inDays(30), u.id);
+  } else if (cur.plan === 'free' && cur.period_end > inMins(freeHours() * 60 + 1)) {
+    db.prepare('UPDATE users SET period_end=? WHERE id=?').run(inMins(freeHours() * 60), u.id); // older accounts that still had a 30-day window
   }
   return db.prepare('SELECT * FROM users WHERE id=?').get(u.id);
 }
@@ -96,7 +100,7 @@ function balanceOf(u) {
   if (isAdminEmail(u.email)) { const unlimited = Number.MAX_SAFE_INTEGER; return { limit: unlimited, used: u.used, bonus: u.bonus, remaining: unlimited, allowance: unlimited, total: unlimited, unlimited: true, resetAt: null, nextReset: null, plan: 'owner' }; }
   const limit = planOf(u.plan).monthlyTokens, used = u.used;
   const allowance = Math.max(0, limit - used);
-  return { limit, used, bonus: u.bonus, remaining: allowance + u.bonus, allowance, total: limit + u.bonus, resetAt: u.period_end, nextReset: u.period_end, plan: u.plan };
+  return { limit, used, bonus: u.bonus, remaining: allowance + u.bonus, allowance, total: limit + u.bonus, resetAt: u.period_end, nextReset: u.period_end, resetHours: u.plan === 'free' ? freeHours() : 720, plan: u.plan };
 }
 function spend(userId, tokens) {
   const u = db.prepare('SELECT * FROM users WHERE id=?').get(userId);
@@ -125,4 +129,4 @@ const userDTO = (u) => {
     locale: u.locale, preferences: { aiLanguage: u.ai_language }, createdAt: u.created_at,
     referral: { code: u.ref_code, link: `${cfg.url}/register?ref=${u.ref_code}`, verifiedCount: verified } };
 };
-module.exports = { cfg, PLANS, planOf, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, balanceOf, spend, userDTO, refreshPeriod, isAdminEmail, normalizeAdminEmail };
+module.exports = { freeHours, cfg, PLANS, planOf, db, HttpError, wrap, id, sha, rand, now, inDays, inMins, sendMail, balanceOf, spend, userDTO, refreshPeriod, isAdminEmail, normalizeAdminEmail };

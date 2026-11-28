@@ -3,7 +3,7 @@ const express = require('express');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const path = require('path'), fs = require('fs');
-const { cfg, PLANS, db, HttpError, wrap, balanceOf } = require('./core');
+const { cfg, PLANS, db, HttpError, wrap, balanceOf, freeHours } = require('./core');
 const auth = require('./auth');
 const chat = require('./chat');
 const billing = require('./billing');
@@ -14,7 +14,8 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: { useDefaults: true, directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'upgrade-insecure-requests': cfg.prod ? [] : null } } }));
 app.use(cookieParser());
 require('./guard')(app); // anti-clone guard
-app.post('/api/billing/webhook/flutterwave', express.json(), billing.flwWebhook); // Flutterwave tells us when money arrived (no CSRF cookie, checked by secret hash)
+app.post('/api/billing/webhook/flutterwave', express.json(), billing.flwWebhook);
+app.post('/api/billing/webhook/stripe', express.raw({ type: '*/*', limit: '1mb' }), billing.stripeWebhook); // Stripe signs the raw body, so it is read before express.json // Flutterwave tells us when money arrived (no CSRF cookie, checked by secret hash)
 app.use(express.json({ limit: '20mb' })); // raised so image/vision attachments (base64) fit
 app.use(auth.loadUser);
 
@@ -36,9 +37,9 @@ app.use('/api', (req, res, next) => {
 app.get('/api/public/config', (req, res) => res.json({
   app: { name: cfg.name, email: cfg.email, creator: cfg.creator, url: cfg.url },
   auth: { google: false },
-  payments: { flutterwave: !!String(process.env.FLW_SECRET_KEY || '').trim() },
+  payments: { methods: billing.methods().map((k) => ({ id: k, label: billing.LABELS[k] })), flutterwave: billing.methods().includes('flutterwave'), paypal: billing.methods().includes('paypal'), stripe: billing.methods().includes('stripe') },
   voice: { transcription: false },
-  plans: PLANS,
+  plans: PLANS.map((p) => (p.id === 'free' ? Object.assign({}, p, { resetHours: freeHours() }) : p)),
   models: models.pub(),
 }));
 app.get('/api/public/models', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ models: models.pub(), detected: models.detected(), categories: [{ id: 'censored', label: 'Censored', desc: 'Careful, polished answers' }, { id: 'uncensored', label: 'Uncensored', desc: 'Blunt, direct answers (same safety rules)' }] }); });
