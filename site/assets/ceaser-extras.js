@@ -1,11 +1,11 @@
 /* v21.5: adds Blog/About/Privacy/Contact links to the landing menu + footer (survives re-render) */
 (function(){
-  var L=[['Blog','/blog/'],['About','/about.html'],['Privacy Policy','/privacy.html'],['Contact','/contact.html']];
+  var L=[['Blog','/blog/'],['About','/about.html'],['Privacy Policy','/privacy.html'],['Terms','/terms.html'],['Contact','/contact.html']];
   function add(){
     var nl=document.querySelector('.navlinks');
     if(nl&&!nl.querySelector('[data-x]')){
       var first=nl.querySelector('.acct,.btn');
-      L.slice(0,1).concat([L[1],L[3]]).forEach(function(l){
+      [L[0],L[1],L[4]].forEach(function(l){
         var a=document.createElement('a');a.className='nl';a.href=l[1];a.textContent=l[0];a.setAttribute('data-x','1');
         nl.insertBefore(a,first);
       });

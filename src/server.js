@@ -13,6 +13,7 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: { useDefaults: true, directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'upgrade-insecure-requests': cfg.prod ? [] : null } } }));
 app.use(cookieParser());
+require('./guard')(app); // anti-clone guard
 app.post('/api/billing/webhook/flutterwave', express.json(), billing.flwWebhook); // Flutterwave tells us when money arrived (no CSRF cookie, checked by secret hash)
 app.use(express.json({ limit: '20mb' })); // raised so image/vision attachments (base64) fit
 app.use(auth.loadUser);
